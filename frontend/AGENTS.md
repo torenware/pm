@@ -20,10 +20,12 @@ This directory contains the existing frontend-only Kanban demo. Preserve its beh
 - `src/app/globals.css` contains global styles, theme variables, and Tailwind setup.
 - `src/components/AuthGate.tsx` restores the backend session, handles login/logout, and gates board rendering.
 - `src/components/KanbanBoard.tsx` loads the authenticated board, owns the rendered board state, and coordinates API-backed board actions.
+- `src/components/AIChatSidebar.tsx` holds session-only chat history and applies AI responses to the visible board.
 - `src/components/KanbanColumn.tsx` renders a sortable column and column controls.
 - `src/components/KanbanCard.tsx` and `KanbanCardPreview.tsx` render cards and drag previews.
 - `src/components/NewCardForm.tsx` handles card creation input.
 - `src/lib/board-api.ts` defines the typed API boundary for board reads and mutations.
+- `src/lib/ai-api.ts` defines the typed AI board-operation request boundary.
 - `src/lib/kanban.ts` defines board types and pure optimistic card-move behavior.
 - `src/lib/kanban.test.ts` tests pure board movement logic.
 - `src/components/KanbanBoard.test.tsx` tests board component interactions.
@@ -38,7 +40,9 @@ This directory contains the existing frontend-only Kanban demo. Preserve its beh
 - Successful mutation responses replace local state with the canonical server board.
 - Drag and drop updates optimistically and reverts to the last server board on failure.
 - Authentication uses the backend's HTTP-only session cookie.
-- AI chat is not implemented yet.
+- AI chat is displayed as a desktop sidebar and a mobile drawer.
+- Chat history remains in React memory, is sent with each AI request, and clears on reload or logout.
+- Valid AI responses replace the visible board with the canonical board returned by FastAPI.
 
 ## Commands
 

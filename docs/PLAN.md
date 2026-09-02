@@ -321,31 +321,36 @@ manual persistence result.
 ### Approval gate
 
 - [x] Present structured operation examples, rollback behavior, and test results.
-- [ ] User approval received for Part 9.
+- [x] User approval received for Part 9.
 
 ## Part 10: AI chat sidebar
 
 ### Implementation checklist
 
-- [ ] Add a responsive AI chat sidebar integrated with the existing Kanban layout and project color scheme.
-- [ ] Provide message history, message input, send action, pending state, error state, and retry behavior.
-- [ ] Keep conversation history in React memory only and send it with each AI request.
-- [ ] Clear chat history on logout and naturally lose it on reload or tab close.
-- [ ] Render assistant text distinctly from user messages.
-- [ ] Refresh the board from the AI response or a follow-up board fetch whenever operations are applied.
-- [ ] Preserve manual board interactions while the chat is open.
-- [ ] Make the sidebar usable on desktop and mobile without overlapping board controls or content.
-- [ ] Add accessible labels, focus behavior, and keyboard submission.
-- [ ] Keep secrets and raw model payloads out of the browser.
+- [x] Add a responsive AI chat sidebar integrated with the existing Kanban layout and project color scheme.
+- [x] Provide message history, message input, send action, pending state, error state, and retry behavior.
+- [x] Keep conversation history in React memory only and send it with each AI request.
+- [x] Clear chat history on logout and naturally lose it on reload or tab close.
+- [x] Render assistant text distinctly from user messages.
+- [x] Refresh the board from the AI response or a follow-up board fetch whenever operations are applied.
+- [x] Preserve manual board interactions while the chat is open.
+- [x] Make the sidebar usable on desktop and mobile without overlapping board controls or content.
+- [x] Add accessible labels, focus behavior, and keyboard submission.
+- [x] Keep secrets and raw model payloads out of the browser.
 
 ### Tests
 
-- [ ] Add frontend tests for sending messages, rendering replies, pending state, errors, retry, and operation-triggered board refresh.
-- [ ] Test that chat history is supplied on later turns but disappears after reload and logout.
-- [ ] Add Playwright flows for a text-only reply and AI-driven create, edit, move, and multi-card updates.
-- [ ] Verify manual drag-and-drop and edits still work with the sidebar open.
-- [ ] Verify desktop and mobile layouts with Playwright screenshots and interaction checks.
-- [ ] Run all backend, frontend, lint, integration, and end-to-end suites in the final container.
+- [x] Add frontend tests for sending messages, rendering replies, pending state, errors, retry, and operation-triggered board refresh.
+- [x] Test that chat history is supplied on later turns but disappears after reload and logout.
+- [x] Add Playwright flows for a text-only reply and AI-driven create, edit, move, and multi-card updates.
+- [x] Verify manual drag-and-drop and edits still work with the sidebar open.
+- [x] Verify desktop and mobile layouts with Playwright screenshots and interaction checks.
+- [x] Run all backend, frontend, lint, integration, and end-to-end suites in the final container.
+
+Final validation: 48 backend tests, 26 frontend unit tests, and 8 Playwright
+tests pass. Frontend linting and the static production build pass. The rebuilt
+Docker Compose application was inspected at 1440px desktop and 390px mobile
+viewports; the desktop sidebar and mobile drawer remain clear of board controls.
 
 ### Success criteria
 
@@ -357,5 +362,5 @@ manual persistence result.
 
 ### Approval gate
 
-- [ ] Demonstrate the complete MVP and present the full test results.
+- [x] Demonstrate the complete MVP and present the full test results.
 - [ ] User approval received for Part 10 and project completion.
