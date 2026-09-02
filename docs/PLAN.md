@@ -30,7 +30,7 @@ Now have the frontend actually use the backend API, so that the app is a proper 
 
 Part 8: AI connectivity
 
-Now allow the backend to make an AI call via OpenRouter. Test connectivity with a simple "2+2" test and ensure the AI call is working.
+Now allow the backend to make an AI call via a KodeKloud model. Test connectivity with a simple "2+2" test and ensure the AI call is working.
 
 Part 9: Now extend the backend call so that it always calls the AI with the JSON of the Kanban board, plus the user's question (and conversation history). The AI should respond with Structured Outputs that includes the response to the user and optionaly an update to the Kanban. Test thoroughly.
 
