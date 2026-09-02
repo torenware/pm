@@ -222,22 +222,22 @@
 
 ### Implementation checklist
 
-- [ ] Replace initial in-memory board data with an authenticated API fetch.
-- [ ] Connect column rename and card create, edit, delete, reorder, and move actions to backend endpoints.
-- [ ] Add the missing card edit interaction to the existing frontend.
-- [ ] Update local UI state from successful API responses.
-- [ ] Show focused loading and error states without discarding the last valid board.
-- [ ] Reconcile or revert optimistic drag state when a request fails.
-- [ ] Redirect to login when the backend reports an expired session.
-- [ ] Keep API access in a small typed frontend module.
+- [x] Replace initial in-memory board data with an authenticated API fetch.
+- [x] Connect column rename and card create, edit, delete, reorder, and move actions to backend endpoints.
+- [x] Add the missing card edit interaction to the existing frontend.
+- [x] Update local UI state from successful API responses.
+- [x] Show focused loading and error states without discarding the last valid board.
+- [x] Reconcile or revert optimistic drag state when a request fails.
+- [x] Redirect to login when the backend reports an expired session.
+- [x] Keep API access in a small typed frontend module.
 
 ### Tests
 
-- [ ] Add frontend unit tests for loading, successful mutations, failed mutations, and session expiry.
-- [ ] Add backend/frontend integration coverage for the board contract.
-- [ ] Extend Playwright tests to cover persisted rename, create, edit, delete, and move actions after page reload.
+- [x] Add frontend unit tests for loading, successful mutations, failed mutations, and session expiry.
+- [x] Add backend/frontend integration coverage for the board contract.
+- [x] Extend Playwright tests to cover persisted rename, create, edit, delete, and move actions after page reload.
 - [x] Verify data remains after stopping and recreating the container.
-- [ ] Run backend tests, frontend tests, linting, and Playwright tests.
+- [x] Run backend tests, frontend tests, linting, and Playwright tests.
 
 Persistence across forced container recreation was verified manually by the user. The
 automated Playwright suite passes, but an additional proof attempted through the shared
@@ -254,7 +254,7 @@ manual persistence result.
 
 ### Approval gate
 
-- [ ] Demonstrate the persistent end-to-end board and present test results.
+- [x] Demonstrate the persistent end-to-end board and present test results.
 - [ ] User approval received for Part 7.
 
 ## Part 8: AI connectivity

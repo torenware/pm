@@ -19,11 +19,12 @@ This directory contains the existing frontend-only Kanban demo. Preserve its beh
 - `src/app/layout.tsx` defines the root document and fonts.
 - `src/app/globals.css` contains global styles, theme variables, and Tailwind setup.
 - `src/components/AuthGate.tsx` restores the backend session, handles login/logout, and gates board rendering.
-- `src/components/KanbanBoard.tsx` owns the in-memory board state and board-level actions.
+- `src/components/KanbanBoard.tsx` loads the authenticated board, owns the rendered board state, and coordinates API-backed board actions.
 - `src/components/KanbanColumn.tsx` renders a sortable column and column controls.
 - `src/components/KanbanCard.tsx` and `KanbanCardPreview.tsx` render cards and drag previews.
 - `src/components/NewCardForm.tsx` handles card creation input.
-- `src/lib/kanban.ts` defines board types, demo data, ID creation, and pure card-move behavior.
+- `src/lib/board-api.ts` defines the typed API boundary for board reads and mutations.
+- `src/lib/kanban.ts` defines board types and pure optimistic card-move behavior.
 - `src/lib/kanban.test.ts` tests pure board movement logic.
 - `src/components/KanbanBoard.test.tsx` tests board component interactions.
 - `tests/kanban.spec.ts` tests primary browser workflows.
@@ -31,11 +32,13 @@ This directory contains the existing frontend-only Kanban demo. Preserve its beh
 ## Existing behavior
 
 - The board has five fixed columns whose titles can be renamed.
-- Users can create and delete cards.
+- Users can create, edit, and delete cards.
 - Cards can be reordered and moved between columns with drag and drop.
-- All board data currently resets on page reload because it is held in React state.
+- Board data is loaded from FastAPI and persisted in SQLite.
+- Successful mutation responses replace local state with the canonical server board.
+- Drag and drop updates optimistically and reverts to the last server board on failure.
 - Authentication uses the backend's HTTP-only session cookie.
-- Card editing, backend board persistence, and AI chat are not implemented yet.
+- AI chat is not implemented yet.
 
 ## Commands
 
