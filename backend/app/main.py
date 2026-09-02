@@ -9,6 +9,13 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from app.ai import (
+    AIClient,
+    AIConfigurationError,
+    AIProviderError,
+    AIProviderTimeout,
+    KodeKloudClient,
+)
 from app.auth import SESSION_COOKIE, Session, SessionStore, require_session
 from app.board import (
     BoardItemNotFound,
@@ -32,12 +39,17 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class AIDiagnosticResponse(BaseModel):
+    answer: str
+
+
 def create_app(
     static_dir: Path | None = None,
     database_path: Path = DEFAULT_DATABASE_PATH,
     session_secret: str = DEFAULT_SESSION_SECRET,
     now: Callable[[], float] = time.time,
     session_max_age: int = 8 * 60 * 60,
+    ai_client: AIClient | None = None,
 ) -> FastAPI:
     application = FastAPI(title="Project Management MVP")
     database = Database(database_path)
@@ -55,6 +67,18 @@ def create_app(
         _request, exception: InvalidBoardOperation
     ) -> JSONResponse:
         return JSONResponse({"detail": str(exception)}, status_code=400)
+
+    @application.exception_handler(AIConfigurationError)
+    def ai_not_configured(_request, _exception) -> JSONResponse:
+        return JSONResponse({"detail": "AI service is not configured"}, status_code=503)
+
+    @application.exception_handler(AIProviderTimeout)
+    def ai_timeout(_request, _exception) -> JSONResponse:
+        return JSONResponse({"detail": "AI service timed out"}, status_code=504)
+
+    @application.exception_handler(AIProviderError)
+    def ai_provider_error(_request, _exception) -> JSONResponse:
+        return JSONResponse({"detail": "AI service request failed"}, status_code=502)
 
     @application.get("/api/health")
     def health() -> dict[str, str]:
@@ -95,6 +119,14 @@ def create_app(
     @application.get("/api/board", response_model=BoardResponse)
     def get_board(session: Session = Depends(authenticated)) -> BoardResponse:
         return boards.get(session.username)
+
+    @application.post("/api/ai/diagnostic", response_model=AIDiagnosticResponse)
+    def ai_diagnostic(
+        _session: Session = Depends(authenticated),
+    ) -> AIDiagnosticResponse:
+        if ai_client is None:
+            raise AIConfigurationError("KodeKloud AI is not configured")
+        return AIDiagnosticResponse(answer=ai_client.ask("2+2"))
 
     @application.patch("/api/columns/{column_id}", response_model=BoardResponse)
     def rename_column(
@@ -146,4 +178,9 @@ app = create_app(
     Path(os.environ.get("STATIC_DIR", DEFAULT_STATIC_DIR)),
     Path(os.environ.get("DATABASE_PATH", DEFAULT_DATABASE_PATH)),
     os.environ.get("SESSION_SECRET", DEFAULT_SESSION_SECRET),
+    ai_client=(
+        KodeKloudClient(os.environ["KK_BASE_URL"], os.environ["KK_API_KEY"])
+        if os.environ.get("KK_BASE_URL") and os.environ.get("KK_API_KEY")
+        else None
+    ),
 )

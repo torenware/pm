@@ -255,23 +255,23 @@ manual persistence result.
 ### Approval gate
 
 - [x] Demonstrate the persistent end-to-end board and present test results.
-- [ ] User approval received for Part 7.
+- [x] User approval received for Part 7.
 
 ## Part 8: AI connectivity
 
 ### Implementation checklist
 
-- [ ] Add a small backend KodeKloud client using `KK_BASE_URL`, `KK_API_KEY`, and `gpt-oss-120b`.
-- [ ] Keep secrets server-side and out of images, logs, responses, and frontend bundles.
-- [ ] Add an authenticated diagnostic endpoint or script that asks the model `2+2`.
-- [ ] Add clear timeout and provider error handling.
-- [ ] Document how to run the connectivity check without documenting secret values.
+- [x] Add a small backend KodeKloud client using `KK_BASE_URL`, `KK_API_KEY`, and `gpt-oss-120b`.
+- [x] Keep secrets server-side and out of images, logs, responses, and frontend bundles.
+- [x] Add an authenticated diagnostic endpoint or script that asks the model `2+2`.
+- [x] Add clear timeout and provider error handling.
+- [x] Document how to run the connectivity check without documenting secret values.
 
 ### Tests
 
-- [ ] Unit-test request construction, model selection, response parsing, timeout handling, and provider errors with a mocked HTTP boundary.
-- [ ] Run the live `2+2` connectivity check using the root `.env` values.
-- [ ] Verify that the returned answer is correct and no secret is exposed.
+- [x] Unit-test request construction, model selection, response parsing, timeout handling, and provider errors with a mocked HTTP boundary.
+- [x] Run the live `2+2` connectivity check using the root `.env` values.
+- [x] Verify that the returned answer is correct and no secret is exposed.
 
 ### Success criteria
 
@@ -282,7 +282,7 @@ manual persistence result.
 
 ### Approval gate
 
-- [ ] Present the live connectivity result and automated test results.
+- [x] Present the live connectivity result and automated test results.
 - [ ] User approval received for Part 8.
 
 ## Part 9: AI board operations
