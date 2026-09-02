@@ -1,13 +1,20 @@
 import { expect, test } from "@playwright/test";
 
-test("loads the kanban board", async ({ page }) => {
+async function signIn(page: import("@playwright/test").Page) {
   await page.goto("/");
+  await page.getByLabel("Username").fill("user");
+  await page.getByLabel("Password").fill("password");
+  await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { name: "Kanban Studio" })).toBeVisible();
+}
+
+test("loads the kanban board", async ({ page }) => {
+  await signIn(page);
   await expect(page.locator('[data-testid^="column-"]')).toHaveCount(5);
 });
 
 test("adds a card to a column", async ({ page }) => {
-  await page.goto("/");
+  await signIn(page);
   const firstColumn = page.locator('[data-testid^="column-"]').first();
   await firstColumn.getByRole("button", { name: /add a card/i }).click();
   await firstColumn.getByPlaceholder("Card title").fill("Playwright card");
@@ -17,7 +24,7 @@ test("adds a card to a column", async ({ page }) => {
 });
 
 test("moves a card between columns", async ({ page }) => {
-  await page.goto("/");
+  await signIn(page);
   const card = page.getByTestId("card-card-1");
   const targetColumn = page.getByTestId("column-col-review");
   const cardBox = await card.boundingBox();
@@ -38,4 +45,39 @@ test("moves a card between columns", async ({ page }) => {
   );
   await page.mouse.up();
   await expect(targetColumn.getByTestId("card-card-1")).toBeVisible();
+});
+
+test("rejects invalid credentials", async ({ page }) => {
+  await page.goto("/");
+  await page.getByLabel("Username").fill("user");
+  await page.getByLabel("Password").fill("wrong");
+  await page.getByRole("button", { name: "Sign in" }).click();
+
+  await expect(page.getByText("Invalid username or password")).toBeVisible();
+  await expect(page.locator('[data-testid^="column-"]')).toHaveCount(0);
+});
+
+test("retains the session across refresh and logs out", async ({ page }) => {
+  await signIn(page);
+
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Kanban Studio" })).toBeVisible();
+  await expect(page.getByText("Signed in as user")).toBeVisible();
+
+  const storage = await page.evaluate(() => ({
+    local: Object.keys(localStorage),
+    session: Object.keys(sessionStorage),
+  }));
+  expect(storage).toEqual({ local: [], session: [] });
+
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+});
+
+test("rejects protected API access without a session", async ({ request }) => {
+  const response = await request.get("/api/protected");
+
+  expect(response.status()).toBe(401);
 });

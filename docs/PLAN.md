@@ -113,28 +113,28 @@
 
 ### Approval gate
 
-- [ ] Present the container-served frontend and test results.
-- [ ] User approval received for Part 3.
+- [x] Present the container-served frontend and test results.
+- [x] User approval received for Part 3.
 
 ## Part 4: Dummy user sign-in
 
 ### Implementation checklist
 
-- [ ] Add backend login, logout, and current-session endpoints.
-- [ ] Validate only the fixed MVP credentials `user` and `password`.
-- [ ] Create a signed, HTTP-only session cookie on successful login.
-- [ ] Configure appropriate local cookie settings, expiry, and logout invalidation.
-- [ ] Protect authenticated API routes with one reusable FastAPI dependency.
-- [ ] Add a frontend login screen shown when no valid session exists.
-- [ ] Add logout control and return the user to the login screen after logout.
-- [ ] Handle invalid credentials and expired sessions without exposing protected content.
-- [ ] Keep credentials and session identifiers out of browser storage.
+- [x] Add backend login, logout, and current-session endpoints.
+- [x] Validate only the fixed MVP credentials `user` and `password`.
+- [x] Create a signed, HTTP-only session cookie on successful login.
+- [x] Configure appropriate local cookie settings, expiry, and logout invalidation.
+- [x] Protect authenticated API routes with one reusable FastAPI dependency.
+- [x] Add a frontend login screen shown when no valid session exists.
+- [x] Add logout control and return the user to the login screen after logout.
+- [x] Handle invalid credentials and expired sessions without exposing protected content.
+- [x] Keep credentials and session identifiers out of browser storage.
 
 ### Tests
 
-- [ ] Add backend tests for successful login, rejected credentials, session lookup, protected access, logout, and expired or invalid cookies.
-- [ ] Add frontend tests for login form behavior, error display, authenticated rendering, and logout.
-- [ ] Add Playwright coverage for login, page refresh with an active session, failed login, and logout.
+- [x] Add backend tests for successful login, rejected credentials, session lookup, protected access, logout, and expired or invalid cookies.
+- [x] Add frontend tests for login form behavior, error display, authenticated rendering, and logout.
+- [x] Add Playwright coverage for login, page refresh with an active session, failed login, and logout.
 
 ### Success criteria
 
@@ -145,7 +145,7 @@
 
 ### Approval gate
 
-- [ ] Demonstrate the sign-in lifecycle and present test results.
+- [x] Demonstrate the sign-in lifecycle and present test results.
 - [ ] User approval received for Part 4.
 
 ## Part 5: Database modeling

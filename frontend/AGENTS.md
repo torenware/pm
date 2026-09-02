@@ -15,9 +15,10 @@ This directory contains the existing frontend-only Kanban demo. Preserve its beh
 
 ## Current structure
 
-- `src/app/page.tsx` renders the Kanban board at `/`.
+- `src/app/page.tsx` renders the authentication-gated application at `/`.
 - `src/app/layout.tsx` defines the root document and fonts.
 - `src/app/globals.css` contains global styles, theme variables, and Tailwind setup.
+- `src/components/AuthGate.tsx` restores the backend session, handles login/logout, and gates board rendering.
 - `src/components/KanbanBoard.tsx` owns the in-memory board state and board-level actions.
 - `src/components/KanbanColumn.tsx` renders a sortable column and column controls.
 - `src/components/KanbanCard.tsx` and `KanbanCardPreview.tsx` render cards and drag previews.
@@ -33,7 +34,8 @@ This directory contains the existing frontend-only Kanban demo. Preserve its beh
 - Users can create and delete cards.
 - Cards can be reordered and moved between columns with drag and drop.
 - All board data currently resets on page reload because it is held in React state.
-- Card editing, authentication, backend persistence, and AI chat are not implemented yet.
+- Authentication uses the backend's HTTP-only session cookie.
+- Card editing, backend board persistence, and AI chat are not implemented yet.
 
 ## Commands
 

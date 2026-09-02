@@ -32,3 +32,64 @@ body {
 .font-display {
   font-family: var(--font-display), "Segoe UI", sans-serif;
 }
+
+.auth-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
+  background:
+    linear-gradient(rgba(32, 157, 215, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(32, 157, 215, 0.08) 1px, transparent 1px),
+    var(--surface);
+  background-size: 48px 48px;
+}
+
+.auth-intro,
+.auth-form-panel {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(2rem, 7vw, 7rem);
+}
+
+.auth-form-panel {
+  align-items: center;
+  border-left: 1px solid var(--stroke);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.auth-input {
+  width: 100%;
+  border: 1px solid rgba(3, 33, 71, 0.18);
+  background: white;
+  padding: 0.75rem 0.875rem;
+  color: var(--navy-dark);
+  outline: none;
+}
+
+.auth-input:focus {
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(32, 157, 215, 0.14);
+}
+
+@media (max-width: 760px) {
+  .auth-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-intro,
+  .auth-form-panel {
+    min-height: auto;
+    padding: 3rem 1.5rem;
+  }
+
+  .auth-intro {
+    padding-top: 4rem;
+  }
+
+  .auth-form-panel {
+    align-items: stretch;
+    border-left: 0;
+    border-top: 1px solid var(--stroke);
+  }
+}

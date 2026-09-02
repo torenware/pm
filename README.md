@@ -22,6 +22,8 @@ Windows PowerShell:
 
 Open <http://localhost:8000>. Set `APP_PORT` in the root `.env` file to use a different host port.
 
+Sign in with username `user` and password `password`. Sessions expire after eight hours and are invalidated when the application restarts unless `SESSION_SECRET` is set in the root `.env` file.
+
 Use the matching `stop-*` script to stop the application. Application data is retained in the ignored repository-local `data/` directory.
 
 ## Test
