@@ -5,7 +5,7 @@
 - Each numbered part is a separate approval gate. Work on the next part starts only after the user approves the current part.
 - The application runs locally as one Docker Compose service.
 - FastAPI serves both the API and the statically exported Next.js application.
-- SQLite data persists between container sessions in a Docker named volume.
+- SQLite data persists between container sessions in the repository-local `data/` directory, bind-mounted at `/data` in the container.
 - Authentication uses the fixed credentials `user` and `password`, with a backend-managed session cookie.
 - The database schema supports multiple users, while the MVP gives each user one board.
 - AI conversation history is held in browser memory and is not stored in SQLite.
@@ -15,11 +15,11 @@
 
 ## Rules for every part
 
-- [ ] Keep changes limited to the current approved part.
-- [ ] Add or update tests for behavior introduced in the part.
-- [ ] Run the focused tests, then the relevant full test suite.
-- [ ] Update concise documentation when commands, architecture, or behavior change.
-- [ ] Record completed checklist items in this document.
+- [x] Keep changes limited to the current approved part.
+- [x] Add or update tests for behavior introduced in the part.
+- [x] Run the focused tests, then the relevant full test suite.
+- [x] Update concise documentation when commands, architecture, or behavior change.
+- [x] Record completed checklist items in this document.
 - [ ] Present test results and request approval before starting the next part.
 
 ## Part 1: Plan
@@ -30,8 +30,8 @@
 - [x] Resolve architecture and scope questions with the user.
 - [x] Define detailed implementation steps, tests, and success criteria for all parts.
 - [x] Create `frontend/AGENTS.md` describing the existing frontend.
-- [ ] Review this plan with the user and incorporate requested changes.
-- [ ] Receive explicit approval to begin Part 2.
+- [x] Review this plan with the user and incorporate requested changes.
+- [x] Receive explicit approval to begin Part 2.
 
 ### Tests
 
@@ -47,30 +47,30 @@
 
 ### Approval gate
 
-- [ ] User approval received for Part 1.
+- [x] User approval received for Part 1.
 
 ## Part 2: Scaffolding
 
 ### Implementation checklist
 
-- [ ] Create a minimal FastAPI project in `backend/` managed by `uv`.
-- [ ] Add a health API endpoint that returns a small JSON response.
-- [ ] Serve a minimal static HTML page at `/` that calls and displays the health endpoint response.
-- [ ] Add a production Dockerfile that installs Python dependencies with `uv` and runs FastAPI.
-- [ ] Add `compose.yaml` with one application service, environment loading, port mapping, and a named data volume.
-- [ ] Mount the named volume at a stable application data path reserved for SQLite.
-- [ ] Add start and stop shell scripts for macOS and Linux.
-- [ ] Add start and stop PowerShell scripts for Windows.
-- [ ] Update `backend/AGENTS.md` and `scripts/AGENTS.md` to describe their implemented contents.
-- [ ] Document only the commands needed to configure and run the scaffold.
+- [x] Create a minimal FastAPI project in `backend/` managed by `uv`.
+- [x] Add a health API endpoint that returns a small JSON response.
+- [x] Serve a minimal static HTML page at `/` that calls and displays the health endpoint response.
+- [x] Add a production Dockerfile that installs Python dependencies with `uv` and runs FastAPI.
+- [x] Add `compose.yaml` with one application service, environment loading, port mapping, and a local data mount.
+- [x] Mount the repository-local `data/` directory at a stable application data path reserved for SQLite.
+- [x] Add start and stop shell scripts for macOS and Linux.
+- [x] Add start and stop PowerShell scripts for Windows.
+- [x] Update `backend/AGENTS.md` and `scripts/AGENTS.md` to describe their implemented contents.
+- [x] Document only the commands needed to configure and run the scaffold.
 
 ### Tests
 
-- [ ] Add a backend test for the health endpoint.
-- [ ] Build the image with Docker Compose.
-- [ ] Start the service and verify `/` returns the static page.
-- [ ] Verify the page successfully calls the health endpoint.
-- [ ] Run the applicable start and stop scripts on macOS; review Linux and PowerShell scripts for equivalent Compose behavior.
+- [x] Add a backend test for the health endpoint.
+- [x] Build the image with Docker Compose.
+- [x] Start the service and verify `/` returns the static page.
+- [x] Verify the page successfully calls the health endpoint.
+- [x] Run the applicable start and stop scripts on macOS; review Linux and PowerShell scripts for equivalent Compose behavior.
 
 ### Success criteria
 
@@ -81,28 +81,28 @@
 
 ### Approval gate
 
-- [ ] Present the running scaffold and test results.
-- [ ] User approval received for Part 2.
+- [x] Present the running scaffold and test results.
+- [x] User approval received for Part 2.
 
 ## Part 3: Add the frontend
 
 ### Implementation checklist
 
-- [ ] Configure Next.js for a static export compatible with FastAPI static hosting.
-- [ ] Add a frontend build stage to the Dockerfile.
-- [ ] Copy the exported frontend into the FastAPI static directory in the final image.
-- [ ] Replace the example page at `/` with the existing Kanban application.
-- [ ] Preserve column rename, card creation and deletion, and drag-and-drop behavior.
-- [ ] Keep frontend state local and non-persistent during this part.
-- [ ] Ensure static asset and client-side route requests are served correctly by FastAPI.
-- [ ] Document frontend build and test commands.
+- [x] Configure Next.js for a static export compatible with FastAPI static hosting.
+- [x] Add a frontend build stage to the Dockerfile.
+- [x] Copy the exported frontend into the FastAPI static directory in the final image.
+- [x] Replace the example page at `/` with the existing Kanban application.
+- [x] Preserve column rename, card creation and deletion, and drag-and-drop behavior.
+- [x] Keep frontend state local and non-persistent during this part.
+- [x] Ensure static asset and client-side route requests are served correctly by FastAPI.
+- [x] Document frontend build and test commands.
 
 ### Tests
 
-- [ ] Run frontend unit tests and linting.
-- [ ] Run the existing Playwright tests against the container-served application.
-- [ ] Add an integration test proving FastAPI serves the exported index and static assets.
-- [ ] Verify a production Docker Compose build contains no Next.js development server.
+- [x] Run frontend unit tests and linting.
+- [x] Run the existing Playwright tests against the container-served application.
+- [x] Add an integration test proving FastAPI serves the exported index and static assets.
+- [x] Verify a production Docker Compose build contains no Next.js development server.
 
 ### Success criteria
 
@@ -160,7 +160,7 @@
 - [ ] Define session storage and expiry behavior.
 - [ ] Save the proposed schema as JSON under `docs/`.
 - [ ] Document migration and automatic database creation strategy under `docs/`.
-- [ ] Document the Docker volume path, backup boundary, and reset procedure.
+- [ ] Document the local data path, backup boundary, and reset procedure.
 - [ ] Review the schema with the user before writing database code.
 
 ### Tests
@@ -188,7 +188,7 @@
 - [ ] Add SQLite access using the approved schema and the standard library or one small established dependency.
 - [ ] Enable foreign-key enforcement and create or migrate the database at application startup.
 - [ ] Seed the fixed MVP user and that user's initial board only when absent.
-- [ ] Store the database in the Docker volume path.
+- [ ] Store the database in the repository-local data path.
 - [ ] Add authenticated endpoints to read the current user's board.
 - [ ] Add authenticated endpoints to rename a column and create, edit, delete, and move a card.
 - [ ] Validate ownership and request data at the API boundary.

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Project Management MVP</title>
+  </head>
+  <body>
+    <main>
+      <h1>Project Management MVP</h1>
+      <p id="api-status">Checking API...</p>
+    </main>
+    <script>
+      fetch("/api/health")
+        .then((response) => response.json())
+        .then((data) => {
+          document.querySelector("#api-status").textContent =
+            data.status === "ok" ? "API connected" : "API unavailable";
+        })
+        .catch(() => {
+          document.querySelector("#api-status").textContent = "API unavailable";
+        });
+    </script>
+  </body>
+</html>
