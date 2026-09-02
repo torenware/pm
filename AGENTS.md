@@ -25,7 +25,7 @@ For the MVP, this will run locally (in a docker container)
 - Use "uv" as the package manager for python in the Docker container
 - Use a model from KodeKloud for the AI calls. A KK_API_KEY and KK_BASE_URL are in .env in the project root
 - Use `gpt-oss-120b` as the model
-- Use SQLLite local database for the database, creating a new db if it doesn't exist
+- Use SQLite local database for the database, creating a new db if it doesn't exist
 - Start and Stop server scripts for Mac, PC, Linux in scripts/
 
 ## Starting Point
