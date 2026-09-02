@@ -5,12 +5,25 @@ from collections.abc import Callable
 from pathlib import Path
 
 from fastapi import Cookie, Depends, FastAPI, Response
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app.auth import SESSION_COOKIE, Session, SessionStore, require_session
+from app.board import (
+    BoardItemNotFound,
+    BoardResponse,
+    BoardStore,
+    CreateCardRequest,
+    EditCardRequest,
+    InvalidBoardOperation,
+    MoveCardRequest,
+    RenameColumnRequest,
+)
+from app.database import Database
 
 DEFAULT_STATIC_DIR = Path(__file__).parent / "static"
+DEFAULT_DATABASE_PATH = Path(__file__).parents[2] / "data" / "pm.db"
 DEFAULT_SESSION_SECRET = secrets.token_hex(32)
 
 
@@ -21,13 +34,27 @@ class LoginRequest(BaseModel):
 
 def create_app(
     static_dir: Path | None = None,
+    database_path: Path = DEFAULT_DATABASE_PATH,
     session_secret: str = DEFAULT_SESSION_SECRET,
     now: Callable[[], float] = time.time,
     session_max_age: int = 8 * 60 * 60,
 ) -> FastAPI:
     application = FastAPI(title="Project Management MVP")
-    sessions = SessionStore(session_secret, now, session_max_age)
+    database = Database(database_path)
+    database.initialize()
+    sessions = SessionStore(database, session_secret, now, session_max_age)
+    boards = BoardStore(database)
     authenticated = require_session(sessions)
+
+    @application.exception_handler(BoardItemNotFound)
+    def board_item_not_found(_request, _exception) -> JSONResponse:
+        return JSONResponse({"detail": "Board item not found"}, status_code=404)
+
+    @application.exception_handler(InvalidBoardOperation)
+    def invalid_board_operation(
+        _request, exception: InvalidBoardOperation
+    ) -> JSONResponse:
+        return JSONResponse({"detail": str(exception)}, status_code=400)
 
     @application.get("/api/health")
     def health() -> dict[str, str]:
@@ -65,6 +92,48 @@ def create_app(
     def protected(session: Session = Depends(authenticated)) -> dict[str, str]:
         return {"username": session.username}
 
+    @application.get("/api/board", response_model=BoardResponse)
+    def get_board(session: Session = Depends(authenticated)) -> BoardResponse:
+        return boards.get(session.username)
+
+    @application.patch("/api/columns/{column_id}", response_model=BoardResponse)
+    def rename_column(
+        column_id: str,
+        request: RenameColumnRequest,
+        session: Session = Depends(authenticated),
+    ) -> BoardResponse:
+        return boards.rename_column(session.username, column_id, request.title)
+
+    @application.post("/api/cards", response_model=BoardResponse, status_code=201)
+    def create_card(
+        request: CreateCardRequest,
+        session: Session = Depends(authenticated),
+    ) -> BoardResponse:
+        return boards.create_card(session.username, request)
+
+    @application.patch("/api/cards/{card_id}", response_model=BoardResponse)
+    def edit_card(
+        card_id: str,
+        request: EditCardRequest,
+        session: Session = Depends(authenticated),
+    ) -> BoardResponse:
+        return boards.edit_card(session.username, card_id, request)
+
+    @application.delete("/api/cards/{card_id}", response_model=BoardResponse)
+    def delete_card(
+        card_id: str,
+        session: Session = Depends(authenticated),
+    ) -> BoardResponse:
+        return boards.delete_card(session.username, card_id)
+
+    @application.post("/api/cards/{card_id}/move", response_model=BoardResponse)
+    def move_card(
+        card_id: str,
+        request: MoveCardRequest,
+        session: Session = Depends(authenticated),
+    ) -> BoardResponse:
+        return boards.move_card(session.username, card_id, request)
+
     application.mount(
         "/",
         StaticFiles(directory=static_dir or DEFAULT_STATIC_DIR, html=True),
@@ -75,5 +144,6 @@ def create_app(
 
 app = create_app(
     Path(os.environ.get("STATIC_DIR", DEFAULT_STATIC_DIR)),
+    Path(os.environ.get("DATABASE_PATH", DEFAULT_DATABASE_PATH)),
     os.environ.get("SESSION_SECRET", DEFAULT_SESSION_SECRET),
 )

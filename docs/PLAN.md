@@ -146,29 +146,29 @@
 ### Approval gate
 
 - [x] Demonstrate the sign-in lifecycle and present test results.
-- [ ] User approval received for Part 4.
+- [x] User approval received for Part 4.
 
 ## Part 5: Database modeling
 
 ### Implementation checklist
 
-- [ ] Propose a normalized SQLite schema for users, boards, columns, cards, and backend sessions.
-- [ ] Include stable identifiers, ownership relationships, ordering fields, timestamps where needed, and integrity constraints.
-- [ ] Keep the schema compatible with multiple users and one board per user.
-- [ ] Define how the fixed five columns are created and how their names and order are stored.
-- [ ] Define card ordering within columns and transactional move behavior.
-- [ ] Define session storage and expiry behavior.
-- [ ] Save the proposed schema as JSON under `docs/`.
-- [ ] Document migration and automatic database creation strategy under `docs/`.
-- [ ] Document the local data path, backup boundary, and reset procedure.
-- [ ] Review the schema with the user before writing database code.
+- [x] Propose a normalized SQLite schema for users, boards, columns, cards, and backend sessions.
+- [x] Include stable identifiers, ownership relationships, ordering fields, timestamps where needed, and integrity constraints.
+- [x] Keep the schema compatible with multiple users and one board per user.
+- [x] Define how the fixed five columns are created and how their names and order are stored.
+- [x] Define card ordering within columns and transactional move behavior.
+- [x] Define session storage and expiry behavior.
+- [x] Save the proposed schema as JSON under `docs/`.
+- [x] Document migration and automatic database creation strategy under `docs/`.
+- [x] Document the local data path, backup boundary, and reset procedure.
+- [x] Review the schema with the user before writing database code.
 
 ### Tests
 
-- [ ] Validate that the schema JSON is syntactically valid.
-- [ ] Walk through sample records for one user, one board, five columns, cards, and a session.
-- [ ] Verify ownership, ordering, uniqueness, and foreign-key constraints cover required operations.
-- [ ] Verify the design supports atomic card moves and column renames.
+- [x] Validate that the schema JSON is syntactically valid.
+- [x] Walk through sample records for one user, one board, five columns, cards, and a session.
+- [x] Verify ownership, ordering, uniqueness, and foreign-key constraints cover required operations.
+- [x] Verify the design supports atomic card moves and column renames.
 
 ### Success criteria
 
@@ -179,31 +179,31 @@
 
 ### Approval gate
 
-- [ ] User approval received for Part 5 schema and persistence design.
+- [x] User approval received for Part 5 schema and persistence design.
 
 ## Part 6: Backend board API
 
 ### Implementation checklist
 
-- [ ] Add SQLite access using the approved schema and the standard library or one small established dependency.
-- [ ] Enable foreign-key enforcement and create or migrate the database at application startup.
-- [ ] Seed the fixed MVP user and that user's initial board only when absent.
-- [ ] Store the database in the repository-local data path.
-- [ ] Add authenticated endpoints to read the current user's board.
-- [ ] Add authenticated endpoints to rename a column and create, edit, delete, and move a card.
-- [ ] Validate ownership and request data at the API boundary.
-- [ ] Apply ordering changes and moves in transactions.
-- [ ] Return stable response models and appropriate HTTP errors.
+- [x] Add SQLite access using the approved schema and the standard library or one small established dependency.
+- [x] Enable foreign-key enforcement and create or migrate the database at application startup.
+- [x] Seed the fixed MVP user and that user's initial board only when absent.
+- [x] Store the database in the repository-local data path.
+- [x] Add authenticated endpoints to read the current user's board.
+- [x] Add authenticated endpoints to rename a column and create, edit, delete, and move a card.
+- [x] Validate ownership and request data at the API boundary.
+- [x] Apply ordering changes and moves in transactions.
+- [x] Return stable response models and appropriate HTTP errors.
 
 ### Tests
 
-- [ ] Add isolated backend tests using a temporary SQLite database.
-- [ ] Test first-run database creation and idempotent startup seeding.
-- [ ] Test board reads and every board mutation, including card editing.
-- [ ] Test same-column reorder and cross-column moves at the start, middle, and end.
-- [ ] Test validation failures, unknown identifiers, unauthenticated requests, and cross-user access.
-- [ ] Test transaction rollback for an invalid move.
-- [ ] Recreate the Compose service and verify persisted board data remains.
+- [x] Add isolated backend tests using a temporary SQLite database.
+- [x] Test first-run database creation and idempotent startup seeding.
+- [x] Test board reads and every board mutation, including card editing.
+- [x] Test same-column reorder and cross-column moves at the start, middle, and end.
+- [x] Test validation failures, unknown identifiers, unauthenticated requests, and cross-user access.
+- [x] Test transaction rollback for an invalid move.
+- [x] Recreate the Compose service and verify persisted board data remains.
 
 ### Success criteria
 
@@ -215,7 +215,7 @@
 
 ### Approval gate
 
-- [ ] Present API behavior, persistence proof, and test results.
+- [x] Present API behavior, persistence proof, and test results.
 - [ ] User approval received for Part 6.
 
 ## Part 7: Connect frontend and backend
