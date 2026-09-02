@@ -1,9 +1,12 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AuthGate } from "@/components/AuthGate";
+import { initialData } from "@/lib/kanban";
 
-const response = (ok: boolean, body: object = {}) =>
-  Promise.resolve({ ok, json: () => Promise.resolve(body) } as Response);
+const board = { id: "board-1", title: "Kanban Studio", ...initialData };
+
+const response = (ok: boolean, body: object = {}, status = ok ? 200 : 401) =>
+  Promise.resolve({ ok, status, json: () => Promise.resolve(body) } as Response);
 
 describe("AuthGate", () => {
   afterEach(() => {
@@ -23,7 +26,8 @@ describe("AuthGate", () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockReturnValueOnce(response(false))
-      .mockReturnValueOnce(response(true, { username: "user" }));
+      .mockReturnValueOnce(response(true, { username: "user" }))
+      .mockReturnValueOnce(response(true, board));
     const user = userEvent.setup();
 
     render(<AuthGate />);
@@ -32,7 +36,8 @@ describe("AuthGate", () => {
     await user.click(screen.getByRole("button", { name: "Sign in" }));
 
     expect(await screen.findByRole("heading", { name: "Kanban Studio" })).toBeVisible();
-    expect(fetchMock).toHaveBeenLastCalledWith(
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
       "/api/login",
       expect.objectContaining({
         method: "POST",
@@ -62,6 +67,7 @@ describe("AuthGate", () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockReturnValueOnce(response(true, { username: "user" }))
+      .mockReturnValueOnce(response(true, board))
       .mockReturnValueOnce(response(true));
     const user = userEvent.setup();
 
@@ -72,5 +78,16 @@ describe("AuthGate", () => {
       expect(screen.getByRole("heading", { name: "Sign in" })).toBeVisible();
     });
     expect(fetchMock).toHaveBeenLastCalledWith("/api/logout", { method: "POST" });
+  });
+
+  it("returns to sign in when the board session has expired", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockReturnValueOnce(response(true, { username: "user" }))
+      .mockReturnValueOnce(response(false));
+
+    render(<AuthGate />);
+
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeVisible();
+    expect(screen.queryByTestId("column-col-backlog")).not.toBeInTheDocument();
   });
 });

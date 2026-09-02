@@ -1,3 +1,4 @@
+import { useState } from "react";
 import clsx from "clsx";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -8,9 +9,10 @@ import { NewCardForm } from "@/components/NewCardForm";
 type KanbanColumnProps = {
   column: Column;
   cards: Card[];
-  onRename: (columnId: string, title: string) => void;
+  onRename: (columnId: string, title: string) => Promise<boolean>;
   onAddCard: (columnId: string, title: string, details: string) => void;
-  onDeleteCard: (columnId: string, cardId: string) => void;
+  onEditCard: (cardId: string, title: string, details: string) => void;
+  onDeleteCard: (cardId: string) => void;
 };
 
 export const KanbanColumn = ({
@@ -18,9 +20,21 @@ export const KanbanColumn = ({
   cards,
   onRename,
   onAddCard,
+  onEditCard,
   onDeleteCard,
 }: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
+  const [title, setTitle] = useState(column.title);
+
+  const commitTitle = async () => {
+    const nextTitle = title.trim();
+    if (!nextTitle) {
+      setTitle(column.title);
+    } else if (nextTitle !== column.title) {
+      const saved = await onRename(column.id, nextTitle);
+      setTitle(saved ? nextTitle : column.title);
+    }
+  };
 
   return (
     <section
@@ -40,8 +54,12 @@ export const KanbanColumn = ({
             </span>
           </div>
           <input
-            value={column.title}
-            onChange={(event) => onRename(column.id, event.target.value)}
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            onBlur={() => void commitTitle()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") event.currentTarget.blur();
+            }}
             className="mt-3 w-full bg-transparent font-display text-lg font-semibold text-[var(--navy-dark)] outline-none"
             aria-label="Column title"
           />
@@ -53,7 +71,8 @@ export const KanbanColumn = ({
             <KanbanCard
               key={card.id}
               card={card}
-              onDelete={(cardId) => onDeleteCard(column.id, cardId)}
+              onEdit={onEditCard}
+              onDelete={onDeleteCard}
             />
           ))}
         </SortableContext>

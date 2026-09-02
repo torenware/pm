@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -13,16 +13,76 @@ import {
 } from "@dnd-kit/core";
 import { KanbanColumn } from "@/components/KanbanColumn";
 import { KanbanCardPreview } from "@/components/KanbanCardPreview";
-import { createId, initialData, moveCard, type BoardData } from "@/lib/kanban";
+import {
+  ApiError,
+  createCard,
+  deleteCard,
+  editCard,
+  getBoard,
+  moveCard as persistCardMove,
+  renameColumn,
+  type Board,
+} from "@/lib/board-api";
+import { moveCard } from "@/lib/kanban";
 
 type KanbanBoardProps = {
   username?: string;
   onLogout?: () => void;
+  onSessionExpired?: () => void;
 };
 
-export const KanbanBoard = ({ username, onLogout }: KanbanBoardProps) => {
-  const [board, setBoard] = useState<BoardData>(() => initialData);
+export const KanbanBoard = ({
+  username,
+  onLogout,
+  onSessionExpired,
+}: KanbanBoardProps) => {
+  const [board, setBoard] = useState<Board | null>(null);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleRequestError = (requestError: unknown) => {
+    if (requestError instanceof ApiError && requestError.status === 401) {
+      onSessionExpired?.();
+      return;
+    }
+    setError("Your change could not be saved. Please try again.");
+  };
+
+  const loadBoard = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      setBoard(await getBoard());
+    } catch (requestError) {
+      handleRequestError(requestError);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    void getBoard()
+      .then((nextBoard) => {
+        if (active) setBoard(nextBoard);
+      })
+      .catch((requestError: unknown) => {
+        if (!active) return;
+        if (requestError instanceof ApiError && requestError.status === 401) {
+          onSessionExpired?.();
+        } else {
+          setError("Your change could not be saved. Please try again.");
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [onSessionExpired]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -30,69 +90,136 @@ export const KanbanBoard = ({ username, onLogout }: KanbanBoardProps) => {
     })
   );
 
-  const cardsById = useMemo(() => board.cards, [board.cards]);
+  const cardsById = useMemo(() => board?.cards ?? {}, [board?.cards]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveCardId(event.active.id as string);
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveCardId(null);
 
-    if (!over || active.id === over.id) {
+    if (!board || !over || active.id === over.id) {
       return;
     }
 
-    setBoard((prev) => ({
-      ...prev,
-      columns: moveCard(prev.columns, active.id as string, over.id as string),
-    }));
+    const previousBoard = board;
+    const columns = moveCard(
+      board.columns,
+      active.id as string,
+      over.id as string
+    );
+    const targetColumn = columns.find((column) =>
+      column.cardIds.includes(active.id as string)
+    );
+    if (!targetColumn) return;
+
+    setBoard({ ...board, columns });
+    setError("");
+    setSaving(true);
+    try {
+      setBoard(
+        await persistCardMove(
+          active.id as string,
+          targetColumn.id,
+          targetColumn.cardIds.indexOf(active.id as string)
+        )
+      );
+    } catch (requestError) {
+      setBoard(previousBoard);
+      handleRequestError(requestError);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleRenameColumn = (columnId: string, title: string) => {
-    setBoard((prev) => ({
-      ...prev,
-      columns: prev.columns.map((column) =>
-        column.id === columnId ? { ...column, title } : column
-      ),
-    }));
+  const handleRenameColumn = async (columnId: string, title: string) => {
+    setError("");
+    setSaving(true);
+    try {
+      setBoard(await renameColumn(columnId, title));
+      return true;
+    } catch (requestError) {
+      handleRequestError(requestError);
+      return false;
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleAddCard = (columnId: string, title: string, details: string) => {
-    const id = createId("card");
-    setBoard((prev) => ({
-      ...prev,
-      cards: {
-        ...prev.cards,
-        [id]: { id, title, details: details || "No details yet." },
-      },
-      columns: prev.columns.map((column) =>
-        column.id === columnId
-          ? { ...column, cardIds: [...column.cardIds, id] }
-          : column
-      ),
-    }));
+  const handleAddCard = async (
+    columnId: string,
+    title: string,
+    details: string
+  ) => {
+    setError("");
+    setSaving(true);
+    try {
+      setBoard(await createCard(columnId, title, details));
+    } catch (requestError) {
+      handleRequestError(requestError);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteCard = (columnId: string, cardId: string) => {
-    setBoard((prev) => {
-      return {
-        ...prev,
-        cards: Object.fromEntries(
-          Object.entries(prev.cards).filter(([id]) => id !== cardId)
-        ),
-        columns: prev.columns.map((column) =>
-          column.id === columnId
-            ? {
-                ...column,
-                cardIds: column.cardIds.filter((id) => id !== cardId),
-              }
-            : column
-        ),
-      };
-    });
+  const handleEditCard = async (
+    cardId: string,
+    title: string,
+    details: string
+  ) => {
+    setError("");
+    setSaving(true);
+    try {
+      setBoard(await editCard(cardId, title, details));
+    } catch (requestError) {
+      handleRequestError(requestError);
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const handleDeleteCard = async (cardId: string) => {
+    setError("");
+    setSaving(true);
+    try {
+      setBoard(await deleteCard(cardId));
+    } catch (requestError) {
+      handleRequestError(requestError);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading && !board) {
+    return (
+      <main className="grid min-h-screen place-items-center" aria-busy="true">
+        <p className="text-sm font-semibold text-[var(--gray-text)]">
+          Loading your board...
+        </p>
+      </main>
+    );
+  }
+
+  if (!board) {
+    return (
+      <main className="grid min-h-screen place-items-center px-6">
+        <div className="text-center">
+          <p role="alert" className="text-sm font-semibold text-red-700">
+            Your board could not be loaded.
+          </p>
+          <button
+            type="button"
+            className="mt-4 text-sm font-semibold text-[var(--secondary-purple)]"
+            onClick={() => void loadBoard()}
+          >
+            Try again
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   const activeCard = activeCardId ? cardsById[activeCardId] : null;
 
@@ -101,7 +228,10 @@ export const KanbanBoard = ({ username, onLogout }: KanbanBoardProps) => {
       <div className="pointer-events-none absolute left-0 top-0 h-[420px] w-[420px] -translate-x-1/3 -translate-y-1/3 rounded-full bg-[radial-gradient(circle,_rgba(32,157,215,0.25)_0%,_rgba(32,157,215,0.05)_55%,_transparent_70%)]" />
       <div className="pointer-events-none absolute bottom-0 right-0 h-[520px] w-[520px] translate-x-1/4 translate-y-1/4 rounded-full bg-[radial-gradient(circle,_rgba(117,57,145,0.18)_0%,_rgba(117,57,145,0.05)_55%,_transparent_75%)]" />
 
-      <main className="relative mx-auto flex min-h-screen max-w-[1500px] flex-col gap-10 px-6 pb-16 pt-12">
+      <main
+        className="relative mx-auto flex min-h-screen max-w-[1500px] flex-col gap-10 px-6 pb-16 pt-12"
+        aria-busy={saving}
+      >
         <header className="flex flex-col gap-6 rounded-[32px] border border-[var(--stroke)] bg-white/80 p-8 shadow-[var(--shadow)] backdrop-blur">
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div>
@@ -147,6 +277,11 @@ export const KanbanBoard = ({ username, onLogout }: KanbanBoardProps) => {
               </div>
             ))}
           </div>
+          {error ? (
+            <p role="alert" className="text-sm font-semibold text-red-700">
+              {error}
+            </p>
+          ) : null}
         </header>
 
         <DndContext
@@ -163,6 +298,7 @@ export const KanbanBoard = ({ username, onLogout }: KanbanBoardProps) => {
                 cards={column.cardIds.map((cardId) => board.cards[cardId])}
                 onRename={handleRenameColumn}
                 onAddCard={handleAddCard}
+                onEditCard={handleEditCard}
                 onDeleteCard={handleDeleteCard}
               />
             ))}

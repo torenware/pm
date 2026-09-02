@@ -216,7 +216,7 @@
 ### Approval gate
 
 - [x] Present API behavior, persistence proof, and test results.
-- [ ] User approval received for Part 6.
+- [x] User approval received for Part 6.
 
 ## Part 7: Connect frontend and backend
 
@@ -236,8 +236,14 @@
 - [ ] Add frontend unit tests for loading, successful mutations, failed mutations, and session expiry.
 - [ ] Add backend/frontend integration coverage for the board contract.
 - [ ] Extend Playwright tests to cover persisted rename, create, edit, delete, and move actions after page reload.
-- [ ] Verify data remains after stopping and recreating the container.
+- [x] Verify data remains after stopping and recreating the container.
 - [ ] Run backend tests, frontend tests, linting, and Playwright tests.
+
+Persistence across forced container recreation was verified manually by the user. The
+automated Playwright suite passes, but an additional proof attempted through the shared
+browser automation session was unreliable because that session timed out on otherwise
+working UI actions. This browser-tool limitation does not invalidate the successful
+manual persistence result.
 
 ### Success criteria
 

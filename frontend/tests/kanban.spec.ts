@@ -13,22 +13,47 @@ test("loads the kanban board", async ({ page }) => {
   await expect(page.locator('[data-testid^="column-"]')).toHaveCount(5);
 });
 
-test("adds a card to a column", async ({ page }) => {
+test("persists board changes across reloads", async ({ page }) => {
   await signIn(page);
   const firstColumn = page.locator('[data-testid^="column-"]').first();
-  await firstColumn.getByRole("button", { name: /add a card/i }).click();
-  await firstColumn.getByPlaceholder("Card title").fill("Playwright card");
-  await firstColumn.getByPlaceholder("Details").fill("Added via e2e.");
-  await firstColumn.getByRole("button", { name: /add card/i }).click();
-  await expect(firstColumn.getByText("Playwright card")).toBeVisible();
-});
+  const secondColumn = page.locator('[data-testid^="column-"]').nth(1);
+  const columnTitle = firstColumn.getByLabel("Column title");
 
-test("moves a card between columns", async ({ page }) => {
-  await signIn(page);
-  const card = page.getByTestId("card-card-1");
-  const targetColumn = page.getByTestId("column-col-review");
-  const cardBox = await card.boundingBox();
-  const columnBox = await targetColumn.boundingBox();
+  const currentBoard = (await (await page.request.get("/api/board")).json()) as {
+    cards: Record<string, { id: string; title: string }>;
+  };
+  for (const staleCard of Object.values(currentBoard.cards).filter((card) =>
+    /browser card/i.test(card.title)
+  )) {
+    await page.request.delete(`/api/cards/${staleCard.id}`);
+  }
+  await page.reload();
+
+  await columnTitle.fill("Incoming work");
+  await columnTitle.press("Enter");
+  await expect(columnTitle).toHaveValue("Incoming work");
+
+  await firstColumn.getByRole("button", { name: /add a card/i }).click();
+  await firstColumn.getByPlaceholder("Card title").fill("Persistent browser card");
+  await firstColumn.getByPlaceholder("Details").fill("Created via the UI.");
+  await firstColumn.getByRole("button", { name: /add card/i }).click();
+  const card = firstColumn.locator("article").filter({
+    hasText: "Persistent browser card",
+  });
+  await expect(card).toBeVisible();
+
+  await card.getByRole("button", { name: /edit persistent browser card/i }).click();
+  const editForm = page.locator("article form");
+  await editForm.locator('input[name="title"]').fill("Edited browser card");
+  await editForm.locator('textarea[name="details"]').fill("Edited and persisted.");
+  await editForm.locator('button[type="submit"]').click();
+  const editedCard = firstColumn.locator("article").filter({
+    hasText: "Edited browser card",
+  });
+  await expect(editedCard).toBeVisible();
+
+  const cardBox = await editedCard.boundingBox();
+  const columnBox = await secondColumn.boundingBox();
   if (!cardBox || !columnBox) {
     throw new Error("Unable to resolve drag coordinates.");
   }
@@ -44,7 +69,29 @@ test("moves a card between columns", async ({ page }) => {
     { steps: 12 }
   );
   await page.mouse.up();
-  await expect(targetColumn.getByTestId("card-card-1")).toBeVisible();
+  await expect(secondColumn.getByText("Edited browser card")).toBeVisible();
+
+  await page.reload();
+  await expect(page.locator('[data-testid^="column-"]').first().getByLabel("Column title")).toHaveValue(
+    "Incoming work"
+  );
+  const persistedCard = page
+    .locator('[data-testid^="column-"]')
+    .nth(1)
+    .locator("article")
+    .filter({ hasText: "Edited browser card" });
+  await expect(persistedCard.getByText("Edited and persisted.")).toBeVisible();
+
+  await persistedCard.getByRole("button", { name: /delete edited browser card/i }).click();
+  await expect(page.getByText("Edited browser card")).toHaveCount(0);
+  const restoredTitle = page.locator('[data-testid^="column-"]').first().getByLabel("Column title");
+  await restoredTitle.fill("Backlog");
+  await restoredTitle.press("Enter");
+  await page.reload();
+  await expect(page.getByText("Edited browser card")).toHaveCount(0);
+  await expect(page.locator('[data-testid^="column-"]').first().getByLabel("Column title")).toHaveValue(
+    "Backlog"
+  );
 });
 
 test("rejects invalid credentials", async ({ page }) => {

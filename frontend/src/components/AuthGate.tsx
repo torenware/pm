@@ -68,7 +68,13 @@ export function AuthGate() {
   }
 
   if (session) {
-    return <KanbanBoard username={session.username} onLogout={handleLogout} />;
+    return (
+      <KanbanBoard
+        username={session.username}
+        onLogout={handleLogout}
+        onSessionExpired={() => setSession(null)}
+      />
+    );
   }
 
   return (
