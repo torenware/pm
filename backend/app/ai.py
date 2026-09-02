@@ -1,12 +1,92 @@
-from typing import Any, Protocol
+import json
+from typing import Annotated, Any, Literal, Protocol
 
 import httpx
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 MODEL = "gpt-oss-120b"
 
 
+class ChatMessage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1)
+
+
+class CreateCardOperation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    operationId: str = Field(min_length=1)
+    type: Literal["create_card"]
+    columnId: str = Field(min_length=1)
+    title: str = Field(min_length=1, max_length=200)
+    details: str
+
+
+class EditCardOperation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    operationId: str = Field(min_length=1)
+    type: Literal["edit_card"]
+    cardId: str = Field(min_length=1)
+    title: str = Field(min_length=1, max_length=200)
+    details: str
+
+
+class DeleteCardOperation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    operationId: str = Field(min_length=1)
+    type: Literal["delete_card"]
+    cardId: str = Field(min_length=1)
+
+
+class MoveCardOperation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    operationId: str = Field(min_length=1)
+    type: Literal["move_card"]
+    cardId: str = Field(min_length=1)
+    columnId: str = Field(min_length=1)
+    position: int = Field(ge=0)
+
+
+class RenameColumnOperation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    operationId: str = Field(min_length=1)
+    type: Literal["rename_column"]
+    columnId: str = Field(min_length=1)
+    title: str = Field(min_length=1, max_length=80)
+
+
+BoardOperation = Annotated[
+    CreateCardOperation
+    | EditCardOperation
+    | DeleteCardOperation
+    | MoveCardOperation
+    | RenameColumnOperation,
+    Field(discriminator="type"),
+]
+
+
+class StructuredAIResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    assistantText: str = Field(min_length=1)
+    operations: list[BoardOperation]
+
+
 class AIClient(Protocol):
     def ask(self, prompt: str) -> str: ...
+
+    def ask_board(
+        self,
+        board: dict[str, Any],
+        message: str,
+        history: list[ChatMessage],
+    ) -> StructuredAIResponse: ...
 
 
 class AIConfigurationError(Exception):
@@ -37,6 +117,57 @@ class KodeKloudClient:
         self.transport = transport
 
     def ask(self, prompt: str) -> str:
+        return self._complete([{"role": "user", "content": prompt}])
+
+    def ask_board(
+        self,
+        board: dict[str, Any],
+        message: str,
+        history: list[ChatMessage],
+    ) -> StructuredAIResponse:
+        prompt = json.dumps(
+            {
+                "board": board,
+                "message": message,
+                "history": [item.model_dump() for item in history],
+            },
+            separators=(",", ":"),
+        )
+        content = self._complete(
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        "You operate a Kanban board. Return JSON matching the supplied "
+                        "schema. Use only the five supported operation types. Reference "
+                        "existing columnId and cardId values from the board. Do not replace "
+                        "the board. Return an empty operations array for text-only replies."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "board_operations",
+                    "strict": True,
+                    "schema": StructuredAIResponse.model_json_schema(),
+                },
+            },
+        )
+        try:
+            return StructuredAIResponse.model_validate_json(content)
+        except ValidationError as exception:
+            raise AIProviderError("KodeKloud AI returned an invalid response") from exception
+
+    def _complete(
+        self,
+        messages: list[dict[str, str]],
+        response_format: dict[str, Any] | None = None,
+    ) -> str:
+        request: dict[str, Any] = {"model": MODEL, "messages": messages}
+        if response_format is not None:
+            request["response_format"] = response_format
         try:
             with httpx.Client(
                 timeout=self.timeout,
@@ -45,10 +176,7 @@ class KodeKloudClient:
                 response = client.post(
                     f"{self.base_url}/chat/completions",
                     headers={"Authorization": f"Bearer {self.api_key}"},
-                    json={
-                        "model": MODEL,
-                        "messages": [{"role": "user", "content": prompt}],
-                    },
+                    json=request,
                 )
                 response.raise_for_status()
         except httpx.TimeoutException as exception:
@@ -56,7 +184,10 @@ class KodeKloudClient:
         except httpx.HTTPError as exception:
             raise AIProviderError("KodeKloud AI request failed") from exception
 
-        return self._content(response.json())
+        try:
+            return self._content(response.json())
+        except ValueError as exception:
+            raise AIProviderError("KodeKloud AI returned an invalid response") from exception
 
     @staticmethod
     def _content(payload: dict[str, Any]) -> str:

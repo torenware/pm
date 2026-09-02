@@ -283,32 +283,32 @@ manual persistence result.
 ### Approval gate
 
 - [x] Present the live connectivity result and automated test results.
-- [ ] User approval received for Part 8.
+- [x] User approval received for Part 8.
 
 ## Part 9: AI board operations
 
 ### Implementation checklist
 
-- [ ] Define a structured AI response containing assistant text and zero or more explicit board operations.
-- [ ] Support only required operations: create card, edit card, delete card, move card, and rename column.
-- [ ] Include operation identifiers and required arguments in a strict discriminated schema.
-- [ ] Send the current authenticated user's board, current user message, and browser-supplied conversation history to the model.
-- [ ] Do not write conversation history to SQLite or server-side session storage.
-- [ ] Instruct the model to reference existing board identifiers and return only supported operations.
-- [ ] Validate structured output before changing the database.
-- [ ] Validate every operation against board ownership and current state.
-- [ ] Apply all operations from one AI response in a single transaction, rolling back the whole set if any operation is invalid.
-- [ ] Return assistant text, applied operations, and the resulting board.
+- [x] Define a structured AI response containing assistant text and zero or more explicit board operations.
+- [x] Support only required operations: create card, edit card, delete card, move card, and rename column.
+- [x] Include operation identifiers and required arguments in a strict discriminated schema.
+- [x] Send the current authenticated user's board, current user message, and browser-supplied conversation history to the model.
+- [x] Do not write conversation history to SQLite or server-side session storage.
+- [x] Instruct the model to reference existing board identifiers and return only supported operations.
+- [x] Validate structured output before changing the database.
+- [x] Validate every operation against board ownership and current state.
+- [x] Apply all operations from one AI response in a single transaction, rolling back the whole set if any operation is invalid.
+- [x] Return assistant text, applied operations, and the resulting board.
 
 ### Tests
 
-- [ ] Unit-test the structured response schema and each operation type.
-- [ ] Test malformed output, unsupported operations, missing identifiers, stale identifiers, and cross-user identifiers.
-- [ ] Test single and multiple valid operations.
-- [ ] Test that one invalid operation rolls back a multi-operation response.
-- [ ] Test prompt construction includes board state, the user message, and supplied history.
-- [ ] Test that conversation messages are absent from SQLite after AI calls.
-- [ ] Run controlled live prompts that create, edit, move, and rename board items.
+- [x] Unit-test the structured response schema and each operation type.
+- [x] Test malformed output, unsupported operations, missing identifiers, stale identifiers, and cross-user identifiers.
+- [x] Test single and multiple valid operations.
+- [x] Test that one invalid operation rolls back a multi-operation response.
+- [x] Test prompt construction includes board state, the user message, and supplied history.
+- [x] Test that conversation messages are absent from SQLite after AI calls.
+- [x] Run controlled live prompts that create, edit, move, and rename board items.
 
 ### Success criteria
 
@@ -320,7 +320,7 @@ manual persistence result.
 
 ### Approval gate
 
-- [ ] Present structured operation examples, rollback behavior, and test results.
+- [x] Present structured operation examples, rollback behavior, and test results.
 - [ ] User approval received for Part 9.
 
 ## Part 10: AI chat sidebar

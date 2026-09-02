@@ -7,13 +7,15 @@ from pathlib import Path
 from fastapi import Cookie, Depends, FastAPI, Response
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.ai import (
     AIClient,
     AIConfigurationError,
     AIProviderError,
     AIProviderTimeout,
+    BoardOperation,
+    ChatMessage,
     KodeKloudClient,
 )
 from app.auth import SESSION_COOKIE, Session, SessionStore, require_session
@@ -41,6 +43,19 @@ class LoginRequest(BaseModel):
 
 class AIDiagnosticResponse(BaseModel):
     answer: str
+
+
+class AIBoardRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    message: str = Field(min_length=1)
+    history: list[ChatMessage] = Field(default_factory=list)
+
+
+class AIBoardResponse(BaseModel):
+    assistantText: str
+    appliedOperations: list[BoardOperation]
+    board: BoardResponse
 
 
 def create_app(
@@ -127,6 +142,26 @@ def create_app(
         if ai_client is None:
             raise AIConfigurationError("KodeKloud AI is not configured")
         return AIDiagnosticResponse(answer=ai_client.ask("2+2"))
+
+    @application.post("/api/ai/board", response_model=AIBoardResponse)
+    def ai_board_operations(
+        request: AIBoardRequest,
+        session: Session = Depends(authenticated),
+    ) -> AIBoardResponse:
+        if ai_client is None:
+            raise AIConfigurationError("KodeKloud AI is not configured")
+        board = boards.get(session.username)
+        ai_response = ai_client.ask_board(
+            board.model_dump(), request.message, request.history
+        )
+        resulting_board = boards.apply_operations(
+            session.username, ai_response.operations
+        )
+        return AIBoardResponse(
+            assistantText=ai_response.assistantText,
+            appliedOperations=ai_response.operations,
+            board=resulting_board,
+        )
 
     @application.patch("/api/columns/{column_id}", response_model=BoardResponse)
     def rename_column(

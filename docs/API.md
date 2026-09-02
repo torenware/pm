@@ -46,3 +46,35 @@ configured KodeKloud `gpt-oss-120b` model `2+2`. A successful response is:
 Missing server configuration returns `503`, provider failures return `502`, and
 provider timeouts return `504`. Error responses do not include provider details,
 credentials, or configuration values.
+
+## AI board operations
+
+`POST /api/ai/board` requires the signed `pm_session` cookie. The browser sends
+the current message and its in-memory conversation history:
+
+```json
+{
+  "message": "Move the release card to Review",
+  "history": [
+    { "role": "user", "content": "Help organize this board" },
+    { "role": "assistant", "content": "Which work is highest priority?" }
+  ]
+}
+```
+
+The backend supplies the signed-in user's current board to the model. The model
+returns assistant text and zero or more strictly validated operations:
+
+| Type | Required arguments |
+| --- | --- |
+| `create_card` | `operationId`, `columnId`, `title`, `details` |
+| `edit_card` | `operationId`, `cardId`, `title`, `details` |
+| `delete_card` | `operationId`, `cardId` |
+| `move_card` | `operationId`, `cardId`, `columnId`, `position` |
+| `rename_column` | `operationId`, `columnId`, `title` |
+
+The response contains `assistantText`, `appliedOperations`, and the complete
+resulting `board`. Every referenced identifier must belong to the signed-in
+user's board. All operations from one response run in one transaction; any
+invalid operation rolls back the entire set. Conversation history is used only
+for that request and is not stored in SQLite or server-side session data.
