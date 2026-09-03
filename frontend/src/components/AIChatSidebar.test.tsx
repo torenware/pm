@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { AIChatSidebar } from "@/components/AIChatSidebar";
 import { ApiError } from "@/lib/board-api";
 import { sendAIMessage } from "@/lib/ai-api";
-import { initialData } from "@/lib/kanban";
+import { initialData } from "@/test/fixtures";
 
 vi.mock("@/lib/ai-api", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/ai-api")>();

@@ -73,16 +73,20 @@ class BoardStore:
         self._database = database
 
     def get(self, username: str) -> BoardResponse:
-        with self._database.connect() as connection:
-            board = self._owned_board(connection, username)
-            columns = connection.execute(
-                "SELECT id, title FROM board_columns WHERE board_id = ? ORDER BY position",
-                (board.id,),
-            ).fetchall()
-            card_rows = connection.execute(
-                "SELECT id, column_id, title, details FROM cards WHERE board_id = ? ORDER BY column_id, position",
-                (board.id,),
-            ).fetchall()
+        connection = self._database.connect()
+        try:
+            with connection:
+                board = self._owned_board(connection, username)
+                columns = connection.execute(
+                    "SELECT id, title FROM board_columns WHERE board_id = ? ORDER BY position",
+                    (board.id,),
+                ).fetchall()
+                card_rows = connection.execute(
+                    "SELECT id, column_id, title, details FROM cards WHERE board_id = ? ORDER BY column_id, position",
+                    (board.id,),
+                ).fetchall()
+        finally:
+            connection.close()
 
         cards = {
             row["id"]: CardResponse(
@@ -109,15 +113,19 @@ class BoardStore:
 
     def rename_column(self, username: str, column_id: str, title: str) -> BoardResponse:
         title = self._required_text(title)
-        with self._database.connect() as connection:
-            board = self._owned_board(connection, username)
-            result = connection.execute(
-                "UPDATE board_columns SET title = ?, updated_at = ? WHERE id = ? AND board_id = ?",
-                (title, utc_now(), column_id, board.id),
-            )
-            if result.rowcount == 0:
-                raise BoardItemNotFound
-            self._touch_board(connection, board.id)
+        connection = self._database.connect()
+        try:
+            with connection:
+                board = self._owned_board(connection, username)
+                result = connection.execute(
+                    "UPDATE board_columns SET title = ?, updated_at = ? WHERE id = ? AND board_id = ?",
+                    (title, utc_now(), column_id, board.id),
+                )
+                if result.rowcount == 0:
+                    raise BoardItemNotFound
+                self._touch_board(connection, board.id)
+        finally:
+            connection.close()
         return self.get(username)
 
     def create_card(self, username: str, request: CreateCardRequest) -> BoardResponse:
@@ -148,15 +156,19 @@ class BoardStore:
 
     def edit_card(self, username: str, card_id: str, request: EditCardRequest) -> BoardResponse:
         title = self._required_text(request.title)
-        with self._database.connect() as connection:
-            board = self._owned_board(connection, username)
-            result = connection.execute(
-                "UPDATE cards SET title = ?, details = ?, updated_at = ? WHERE id = ? AND board_id = ?",
-                (title, request.details, utc_now(), card_id, board.id),
-            )
-            if result.rowcount == 0:
-                raise BoardItemNotFound
-            self._touch_board(connection, board.id)
+        connection = self._database.connect()
+        try:
+            with connection:
+                board = self._owned_board(connection, username)
+                result = connection.execute(
+                    "UPDATE cards SET title = ?, details = ?, updated_at = ? WHERE id = ? AND board_id = ?",
+                    (title, request.details, utc_now(), card_id, board.id),
+                )
+                if result.rowcount == 0:
+                    raise BoardItemNotFound
+                self._touch_board(connection, board.id)
+        finally:
+            connection.close()
         return self.get(username)
 
     def delete_card(self, username: str, card_id: str) -> BoardResponse:
@@ -177,36 +189,8 @@ class BoardStore:
     ) -> BoardResponse:
         with self._immediate() as connection:
             board = self._owned_board(connection, username)
-            card = self._owned_card(connection, board.id, card_id)
-            self._owned_column(connection, board.id, request.columnId)
-            source_column_id = card["column_id"]
-            source_ids = self._card_ids(connection, source_column_id)
-            source_ids.remove(card_id)
-            if source_column_id == request.columnId:
-                target_ids = source_ids
-            else:
-                target_ids = self._card_ids(connection, request.columnId)
-            if request.position > len(target_ids):
-                raise InvalidBoardOperation("Position is outside the target column")
-            target_ids.insert(request.position, card_id)
-
-            affected_ids = {source_column_id, request.columnId}
-            temporary_offset = sum(
-                connection.execute(
-                    "SELECT count(*) FROM cards WHERE column_id = ?", (column_id,)
-                ).fetchone()[0]
-                for column_id in affected_ids
-            ) + 1
-            connection.execute(
-                f"UPDATE cards SET position = position + ? WHERE column_id IN ({','.join('?' for _ in affected_ids)})",
-                (temporary_offset, *affected_ids),
-            )
-            self._write_positions(connection, source_column_id, source_ids)
-            if source_column_id != request.columnId:
-                self._write_positions(connection, request.columnId, target_ids)
-            connection.execute(
-                "UPDATE cards SET column_id = ?, updated_at = ? WHERE id = ?",
-                (request.columnId, utc_now(), card_id),
+            self._move_card(
+                connection, board.id, card_id, request.columnId, request.position
             )
             self._touch_board(connection, board.id)
         return self.get(username)
@@ -306,21 +290,33 @@ class BoardStore:
         board_id: str,
         operation: MoveCardOperation,
     ) -> None:
-        card = self._owned_card(connection, board_id, operation.cardId)
-        self._owned_column(connection, board_id, operation.columnId)
+        self._move_card(
+            connection, board_id, operation.cardId, operation.columnId, operation.position
+        )
+
+    def _move_card(
+        self,
+        connection: sqlite3.Connection,
+        board_id: str,
+        card_id: str,
+        target_column_id: str,
+        position: int,
+    ) -> None:
+        card = self._owned_card(connection, board_id, card_id)
+        self._owned_column(connection, board_id, target_column_id)
         source_column_id = card["column_id"]
         source_ids = self._card_ids(connection, source_column_id)
-        source_ids.remove(operation.cardId)
+        source_ids.remove(card_id)
         target_ids = (
             source_ids
-            if source_column_id == operation.columnId
-            else self._card_ids(connection, operation.columnId)
+            if source_column_id == target_column_id
+            else self._card_ids(connection, target_column_id)
         )
-        if operation.position > len(target_ids):
+        if position > len(target_ids):
             raise InvalidBoardOperation("Position is outside the target column")
-        target_ids.insert(operation.position, operation.cardId)
+        target_ids.insert(position, card_id)
 
-        affected_ids = {source_column_id, operation.columnId}
+        affected_ids = {source_column_id, target_column_id}
         temporary_offset = sum(
             connection.execute(
                 "SELECT count(*) FROM cards WHERE column_id = ?", (column_id,)
@@ -332,11 +328,11 @@ class BoardStore:
             (temporary_offset, *affected_ids),
         )
         self._write_positions(connection, source_column_id, source_ids)
-        if source_column_id != operation.columnId:
-            self._write_positions(connection, operation.columnId, target_ids)
+        if source_column_id != target_column_id:
+            self._write_positions(connection, target_column_id, target_ids)
         connection.execute(
             "UPDATE cards SET column_id = ?, updated_at = ? WHERE id = ?",
-            (operation.columnId, utc_now(), operation.cardId),
+            (target_column_id, utc_now(), card_id),
         )
 
     def _rename_column_operation(

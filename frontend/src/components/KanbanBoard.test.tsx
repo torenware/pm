@@ -1,5 +1,7 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { DragEndEvent } from "@dnd-kit/core";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import {
   ApiError,
@@ -7,9 +9,14 @@ import {
   deleteCard,
   editCard,
   getBoard,
+  moveCard as persistCardMove,
   renameColumn,
 } from "@/lib/board-api";
-import { initialData } from "@/lib/kanban";
+import { initialData } from "@/test/fixtures";
+
+const dndCapture = vi.hoisted(() => ({
+  onDragEnd: undefined as ((event: DragEndEvent) => void) | undefined,
+}));
 
 vi.mock("@/lib/board-api", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/board-api")>();
@@ -24,6 +31,23 @@ vi.mock("@/lib/board-api", async (importOriginal) => {
   };
 });
 
+vi.mock("@dnd-kit/core", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@dnd-kit/core")>();
+  return {
+    ...original,
+    DndContext: ({
+      children,
+      onDragEnd,
+    }: {
+      children: ReactNode;
+      onDragEnd: (event: DragEndEvent) => void;
+    }) => {
+      dndCapture.onDragEnd = onDragEnd;
+      return <>{children}</>;
+    },
+  };
+});
+
 const board = {
   id: "board-1",
   title: "Kanban Studio",
@@ -33,6 +57,7 @@ const board = {
 describe("KanbanBoard", () => {
   beforeEach(() => {
     vi.mocked(getBoard).mockResolvedValue(board);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
   });
 
   it("loads and renders five columns", async () => {
@@ -149,5 +174,60 @@ describe("KanbanBoard", () => {
     render(<KanbanBoard onSessionExpired={onSessionExpired} />);
 
     await waitFor(() => expect(onSessionExpired).toHaveBeenCalledOnce());
+  });
+
+  it("optimistically moves a dragged card and persists the move", async () => {
+    const movedBoard = {
+      ...board,
+      columns: board.columns.map((column) => {
+        if (column.id === "col-backlog") {
+          return {
+            ...column,
+            cardIds: column.cardIds.filter((id) => id !== "card-1"),
+          };
+        }
+        if (column.id === "col-discovery") {
+          return { ...column, cardIds: [...column.cardIds, "card-1"] };
+        }
+        return column;
+      }),
+    };
+    vi.mocked(persistCardMove).mockResolvedValue(movedBoard);
+    render(<KanbanBoard />);
+    await screen.findByText("Align roadmap themes");
+
+    await act(async () => {
+      await dndCapture.onDragEnd?.({
+        active: { id: "card-1" },
+        over: { id: "col-discovery" },
+      } as DragEndEvent);
+    });
+
+    expect(persistCardMove).toHaveBeenCalledWith("card-1", "col-discovery", 1);
+    const discoveryColumn = await screen.findByTestId("column-col-discovery");
+    expect(
+      within(discoveryColumn).getByText("Align roadmap themes")
+    ).toBeInTheDocument();
+  });
+
+  it("rolls back an optimistic card move when persisting fails", async () => {
+    vi.mocked(persistCardMove).mockRejectedValue(new ApiError(500));
+    render(<KanbanBoard />);
+    await screen.findByText("Align roadmap themes");
+
+    await act(async () => {
+      await dndCapture.onDragEnd?.({
+        active: { id: "card-1" },
+        over: { id: "col-discovery" },
+      } as DragEndEvent);
+    });
+
+    expect(
+      await screen.findByText("Your change could not be saved. Please try again.")
+    ).toBeInTheDocument();
+    const backlogColumn = await screen.findByTestId("column-col-backlog");
+    expect(
+      within(backlogColumn).getByText("Align roadmap themes")
+    ).toBeInTheDocument();
   });
 });

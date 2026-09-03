@@ -37,21 +37,25 @@ class SessionStore:
         session_id = secrets.token_urlsafe(32)
         created_at = self._timestamp(self._now())
         expires_at = self._timestamp(self._now() + self.max_age)
-        with self._database.connect() as connection:
-            connection.execute(
-                "DELETE FROM sessions WHERE expires_at <= ?",
-                (created_at,),
-            )
-            user = connection.execute(
-                "SELECT id FROM users WHERE username = ?",
-                (username,),
-            ).fetchone()
-            if user is None:
-                raise ValueError("Unknown session user")
-            connection.execute(
-                "INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
-                (self._hash(session_id), user["id"], created_at, expires_at),
-            )
+        connection = self._database.connect()
+        try:
+            with connection:
+                connection.execute(
+                    "DELETE FROM sessions WHERE expires_at <= ?",
+                    (created_at,),
+                )
+                user = connection.execute(
+                    "SELECT id FROM users WHERE username = ?",
+                    (username,),
+                ).fetchone()
+                if user is None:
+                    raise ValueError("Unknown session user")
+                connection.execute(
+                    "INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+                    (self._hash(session_id), user["id"], created_at, expires_at),
+                )
+        finally:
+            connection.close()
         return self._sign(session_id)
 
     def get(self, cookie: str | None) -> Session | None:
@@ -60,30 +64,36 @@ class SessionStore:
             return None
 
         now = self._timestamp(self._now())
-        with self._database.connect() as connection:
-            row = connection.execute(
-                "SELECT users.username, sessions.expires_at FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.token_hash = ? AND sessions.expires_at > ?",
-                (self._hash(session_id), now),
-            ).fetchone()
-            if row is None:
-                connection.execute(
-                    "DELETE FROM sessions WHERE token_hash = ?",
-                    (self._hash(session_id),),
-                )
-                return None
+        connection = self._database.connect()
+        try:
+            with connection:
+                row = connection.execute(
+                    "SELECT users.username, sessions.expires_at FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.token_hash = ? AND sessions.expires_at > ?",
+                    (self._hash(session_id), now),
+                ).fetchone()
+                if row is None:
+                    connection.execute(
+                        "DELETE FROM sessions WHERE token_hash = ?",
+                        (self._hash(session_id),),
+                    )
+                    return None
+        finally:
+            connection.close()
         expires_at = datetime.fromisoformat(row["expires_at"]).timestamp()
-        if expires_at <= self._now():
-            return None
         return Session(username=row["username"], expires_at=expires_at)
 
     def delete(self, cookie: str | None) -> None:
         session_id = self._verify(cookie)
         if session_id is not None:
-            with self._database.connect() as connection:
-                connection.execute(
-                    "DELETE FROM sessions WHERE token_hash = ?",
-                    (self._hash(session_id),),
-                )
+            connection = self._database.connect()
+            try:
+                with connection:
+                    connection.execute(
+                        "DELETE FROM sessions WHERE token_hash = ?",
+                        (self._hash(session_id),),
+                    )
+            finally:
+                connection.close()
 
     @staticmethod
     def _timestamp(value: float) -> str:
@@ -94,7 +104,7 @@ class SessionStore:
         return hashlib.sha256(session_id.encode()).hexdigest()
 
     def _sign(self, session_id: str) -> str:
-        signature = hmac.new(self._secret, session_id.encode(), hashlib.sha256).hexdigest()
+        signature = hmac.HMAC(self._secret, session_id.encode(), hashlib.sha256).hexdigest()
         return f"{session_id}.{signature}"
 
     def _verify(self, cookie: str | None) -> str | None:
@@ -104,7 +114,7 @@ class SessionStore:
             session_id, signature = cookie.rsplit(".", 1)
         except ValueError:
             return None
-        expected = hmac.new(
+        expected = hmac.HMAC(
             self._secret,
             session_id.encode(),
             hashlib.sha256,

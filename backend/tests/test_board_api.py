@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.board import BoardStore, MoveCardRequest
-from app.database import Database
+from app.database import Database, utc_now
 from app.main import create_app
 
 
@@ -195,7 +195,7 @@ def test_validation_unknown_ids_and_cross_user_ids(
 
     database = Database(database_path)
     with database.connect() as connection:
-        timestamp = "2026-09-02T20:00:00+00:00"
+        timestamp = utc_now()
         connection.execute(
             "INSERT INTO users VALUES ('other-user', 'other', ?)", (timestamp,)
         )

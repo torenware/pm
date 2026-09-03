@@ -14,6 +14,7 @@ test("loads the kanban board", async ({ page }) => {
 });
 
 test("persists board changes across reloads", async ({ page }) => {
+  page.on("dialog", (dialog) => dialog.accept());
   await signIn(page);
   const firstColumn = page.locator('[data-testid^="column-"]').first();
   const secondColumn = page.locator('[data-testid^="column-"]').nth(1);

@@ -23,9 +23,13 @@ COPY backend/app ./app
 RUN rm -rf ./app/static
 COPY --from=frontend /frontend/out ./app/static
 
-RUN mkdir -p /data
+RUN useradd --create-home appuser \
+    && mkdir -p /data \
+    && chown -R appuser:appuser /app /data
 
 ENV PATH="/app/.venv/bin:$PATH"
+
+USER appuser
 
 EXPOSE 8000
 

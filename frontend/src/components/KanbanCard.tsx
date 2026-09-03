@@ -29,6 +29,12 @@ export const KanbanCard = ({ card, onEdit, onDelete }: KanbanCardProps) => {
     setEditing(false);
   };
 
+  const handleDelete = () => {
+    if (window.confirm(`Delete "${card.title}"? This cannot be undone.`)) {
+      onDelete(card.id);
+    }
+  };
+
   return (
     <article
       ref={setNodeRef}
@@ -50,6 +56,7 @@ export const KanbanCard = ({ card, onEdit, onDelete }: KanbanCardProps) => {
               name="title"
               defaultValue={card.title}
               required
+              autoFocus
               className="auth-input mt-1"
             />
           </label>
@@ -98,7 +105,7 @@ export const KanbanCard = ({ card, onEdit, onDelete }: KanbanCardProps) => {
           </button>
           <button
             type="button"
-            onClick={() => onDelete(card.id)}
+            onClick={handleDelete}
             className="rounded-full border border-transparent px-2 py-1 text-xs font-semibold text-[var(--gray-text)] transition hover:border-[var(--stroke)] hover:text-[var(--navy-dark)]"
             aria-label={`Delete ${card.title}`}
           >

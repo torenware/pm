@@ -21,14 +21,6 @@ def test_health() -> None:
     assert response.json() == {"status": "ok"}
 
 
-def test_root_serves_temporary_page_that_calls_health_api() -> None:
-    response = client.get("/")
-
-    assert response.status_code == 200
-    assert "Project Management MVP" in response.text
-    assert 'fetch("/api/health")' in response.text
-
-
 def test_static_export_serves_index_and_nested_assets(tmp_path: Path) -> None:
     asset_dir = tmp_path / "_next" / "static"
     asset_dir.mkdir(parents=True)

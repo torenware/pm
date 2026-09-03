@@ -7,7 +7,7 @@ import {
   moveCard,
   renameColumn,
 } from "@/lib/board-api";
-import { initialData } from "@/lib/kanban";
+import { initialData } from "@/test/fixtures";
 
 const board = { id: "board-1", title: "Kanban Studio", ...initialData };
 const response = (ok = true, status = 200) =>
@@ -23,9 +23,10 @@ describe("board API", () => {
   it("reads the authenticated board", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockReturnValue(response());
     await expect(getBoard()).resolves.toEqual(board);
-    expect(fetchMock).toHaveBeenCalledWith("/api/board", {
-      headers: undefined,
-    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [path, init] = fetchMock.mock.calls[0];
+    expect(path).toBe("/api/board");
+    expect(init?.body).toBeUndefined();
   });
 
   it.each([
@@ -66,10 +67,11 @@ describe("board API", () => {
   it("deletes a card", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockReturnValue(response());
     await deleteCard("card-1");
-    expect(fetchMock).toHaveBeenCalledWith("/api/cards/card-1", {
-      method: "DELETE",
-      headers: undefined,
-    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [path, init] = fetchMock.mock.calls[0];
+    expect(path).toBe("/api/cards/card-1");
+    expect(init?.method).toBe("DELETE");
+    expect(init?.body).toBeUndefined();
   });
 
   it("exposes the response status for error handling", async () => {

@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AuthGate } from "@/components/AuthGate";
-import { initialData } from "@/lib/kanban";
+import { initialData } from "@/test/fixtures";
 
 const board = { id: "board-1", title: "Kanban Studio", ...initialData };
 

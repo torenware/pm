@@ -18,7 +18,7 @@ from app.ai import (
     ChatMessage,
     KodeKloudClient,
 )
-from app.auth import SESSION_COOKIE, Session, SessionStore, require_session
+from app.auth import SESSION_COOKIE, SESSION_MAX_AGE, Session, SessionStore, require_session
 from app.board import (
     BoardItemNotFound,
     BoardResponse,
@@ -34,6 +34,7 @@ from app.database import Database
 DEFAULT_STATIC_DIR = Path(__file__).parent / "static"
 DEFAULT_DATABASE_PATH = Path(__file__).parents[2] / "data" / "pm.db"
 DEFAULT_SESSION_SECRET = secrets.token_hex(32)
+MAX_AI_HISTORY_MESSAGES = 20
 
 
 class LoginRequest(BaseModel):
@@ -49,7 +50,9 @@ class AIBoardRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     message: str = Field(min_length=1)
-    history: list[ChatMessage] = Field(default_factory=list)
+    history: list[ChatMessage] = Field(
+        default_factory=list, max_length=MAX_AI_HISTORY_MESSAGES
+    )
 
 
 class AIBoardResponse(BaseModel):
@@ -63,7 +66,7 @@ def create_app(
     database_path: Path = DEFAULT_DATABASE_PATH,
     session_secret: str = DEFAULT_SESSION_SECRET,
     now: Callable[[], float] = time.time,
-    session_max_age: int = 8 * 60 * 60,
+    session_max_age: int = SESSION_MAX_AGE,
     ai_client: AIClient | None = None,
 ) -> FastAPI:
     application = FastAPI(title="Project Management MVP")

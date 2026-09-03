@@ -18,6 +18,8 @@ type FailedRequest = {
   history: ChatMessage[];
 };
 
+const MAX_HISTORY_MESSAGES = 20;
+
 export function AIChatSidebar({
   onBoardChange,
   onSessionExpired,
@@ -44,7 +46,10 @@ export function AIChatSidebar({
     setError("");
     setFailedRequest(null);
     try {
-      const result = await sendAIMessage(message, history);
+      const result = await sendAIMessage(
+        message,
+        history.slice(-MAX_HISTORY_MESSAGES)
+      );
       setMessages([
         ...history,
         { role: "user", content: message },

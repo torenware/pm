@@ -25,6 +25,12 @@ export const KanbanColumn = ({
 }: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const [title, setTitle] = useState(column.title);
+  const [syncedTitle, setSyncedTitle] = useState(column.title);
+
+  if (column.title !== syncedTitle) {
+    setSyncedTitle(column.title);
+    setTitle(column.title);
+  }
 
   const commitTitle = async () => {
     const nextTitle = title.trim();

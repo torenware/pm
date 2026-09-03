@@ -43,12 +43,15 @@ export const KanbanBoard = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const handleRequestError = (requestError: unknown) => {
+  const handleRequestError = (
+    requestError: unknown,
+    message = "Your change could not be saved. Please try again."
+  ) => {
     if (requestError instanceof ApiError && requestError.status === 401) {
       onSessionExpired?.();
       return;
     }
-    setError("Your change could not be saved. Please try again.");
+    setError(message);
   };
 
   const loadBoard = async () => {
@@ -57,33 +60,19 @@ export const KanbanBoard = ({
     try {
       setBoard(await getBoard());
     } catch (requestError) {
-      handleRequestError(requestError);
+      handleRequestError(
+        requestError,
+        "Your board could not be loaded. Please try again."
+      );
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    let active = true;
-    void getBoard()
-      .then((nextBoard) => {
-        if (active) setBoard(nextBoard);
-      })
-      .catch((requestError: unknown) => {
-        if (!active) return;
-        if (requestError instanceof ApiError && requestError.status === 401) {
-          onSessionExpired?.();
-        } else {
-          setError("Your change could not be saved. Please try again.");
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [onSessionExpired]);
+    void loadBoard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
