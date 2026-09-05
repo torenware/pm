@@ -73,21 +73,75 @@ class BoardStore:
         self._database = database
 
     def get(self, username: str) -> BoardResponse:
-        connection = self._database.connect()
-        try:
-            with connection:
-                board = self._owned_board(connection, username)
-                columns = connection.execute(
-                    "SELECT id, title FROM board_columns WHERE board_id = ? ORDER BY position",
-                    (board.id,),
-                ).fetchall()
-                card_rows = connection.execute(
-                    "SELECT id, column_id, title, details FROM cards WHERE board_id = ? ORDER BY column_id, position",
-                    (board.id,),
-                ).fetchall()
-        finally:
-            connection.close()
+        with self._database.session() as connection:
+            board = self._owned_board(connection, username)
+            return self._snapshot(connection, board)
 
+    def rename_column(self, username: str, column_id: str, title: str) -> BoardResponse:
+        with self._immediate() as connection:
+            board = self._owned_board(connection, username)
+            self._rename_column(connection, board.id, column_id, title)
+            self._touch_board(connection, board.id)
+            return self._snapshot(connection, board)
+
+    def create_card(self, username: str, request: CreateCardRequest) -> BoardResponse:
+        with self._immediate() as connection:
+            board = self._owned_board(connection, username)
+            self._create_card(
+                connection, board.id, request.columnId, request.title, request.details
+            )
+            self._touch_board(connection, board.id)
+            return self._snapshot(connection, board)
+
+    def edit_card(self, username: str, card_id: str, request: EditCardRequest) -> BoardResponse:
+        with self._immediate() as connection:
+            board = self._owned_board(connection, username)
+            self._edit_card(connection, board.id, card_id, request.title, request.details)
+            self._touch_board(connection, board.id)
+            return self._snapshot(connection, board)
+
+    def delete_card(self, username: str, card_id: str) -> BoardResponse:
+        with self._immediate() as connection:
+            board = self._owned_board(connection, username)
+            self._delete_card(connection, board.id, card_id)
+            self._touch_board(connection, board.id)
+            return self._snapshot(connection, board)
+
+    def move_card(
+        self, username: str, card_id: str, request: MoveCardRequest
+    ) -> BoardResponse:
+        with self._immediate() as connection:
+            board = self._owned_board(connection, username)
+            self._move_card(
+                connection, board.id, card_id, request.columnId, request.position
+            )
+            self._touch_board(connection, board.id)
+            return self._snapshot(connection, board)
+
+    def apply_operations(
+        self, username: str, operations: list[BoardOperation]
+    ) -> BoardResponse:
+        operation_ids = [operation.operationId for operation in operations]
+        if len(operation_ids) != len(set(operation_ids)):
+            raise InvalidBoardOperation("Operation identifiers must be unique")
+
+        with self._immediate() as connection:
+            board = self._owned_board(connection, username)
+            for operation in operations:
+                self._apply_operation(connection, board.id, operation)
+            if operations:
+                self._touch_board(connection, board.id)
+            return self._snapshot(connection, board)
+
+    def _snapshot(self, connection: sqlite3.Connection, board: OwnedBoard) -> BoardResponse:
+        columns = connection.execute(
+            "SELECT id, title FROM board_columns WHERE board_id = ? ORDER BY position",
+            (board.id,),
+        ).fetchall()
+        card_rows = connection.execute(
+            "SELECT id, column_id, title, details FROM cards WHERE board_id = ? ORDER BY column_id, position",
+            (board.id,),
+        ).fetchall()
         cards = {
             row["id"]: CardResponse(
                 id=row["id"], title=row["title"], details=row["details"]
@@ -111,104 +165,13 @@ class BoardStore:
             cards=cards,
         )
 
-    def rename_column(self, username: str, column_id: str, title: str) -> BoardResponse:
-        title = self._required_text(title)
-        connection = self._database.connect()
-        try:
-            with connection:
-                board = self._owned_board(connection, username)
-                result = connection.execute(
-                    "UPDATE board_columns SET title = ?, updated_at = ? WHERE id = ? AND board_id = ?",
-                    (title, utc_now(), column_id, board.id),
-                )
-                if result.rowcount == 0:
-                    raise BoardItemNotFound
-                self._touch_board(connection, board.id)
-        finally:
-            connection.close()
-        return self.get(username)
-
-    def create_card(self, username: str, request: CreateCardRequest) -> BoardResponse:
-        title = self._required_text(request.title)
-        with self._immediate() as connection:
-            board = self._owned_board(connection, username)
-            self._owned_column(connection, board.id, request.columnId)
-            position = connection.execute(
-                "SELECT count(*) FROM cards WHERE column_id = ?",
-                (request.columnId,),
-            ).fetchone()[0]
-            timestamp = utc_now()
-            connection.execute(
-                "INSERT INTO cards (id, board_id, column_id, title, details, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    str(uuid4()),
-                    board.id,
-                    request.columnId,
-                    title,
-                    request.details,
-                    position,
-                    timestamp,
-                    timestamp,
-                ),
-            )
-            self._touch_board(connection, board.id)
-        return self.get(username)
-
-    def edit_card(self, username: str, card_id: str, request: EditCardRequest) -> BoardResponse:
-        title = self._required_text(request.title)
-        connection = self._database.connect()
-        try:
-            with connection:
-                board = self._owned_board(connection, username)
-                result = connection.execute(
-                    "UPDATE cards SET title = ?, details = ?, updated_at = ? WHERE id = ? AND board_id = ?",
-                    (title, request.details, utc_now(), card_id, board.id),
-                )
-                if result.rowcount == 0:
-                    raise BoardItemNotFound
-                self._touch_board(connection, board.id)
-        finally:
-            connection.close()
-        return self.get(username)
-
-    def delete_card(self, username: str, card_id: str) -> BoardResponse:
-        with self._immediate() as connection:
-            board = self._owned_board(connection, username)
-            card = self._owned_card(connection, board.id, card_id)
-            connection.execute("DELETE FROM cards WHERE id = ?", (card_id,))
-            self._write_positions(
-                connection,
-                card["column_id"],
-                self._card_ids(connection, card["column_id"]),
-            )
-            self._touch_board(connection, board.id)
-        return self.get(username)
-
-    def move_card(
-        self, username: str, card_id: str, request: MoveCardRequest
-    ) -> BoardResponse:
-        with self._immediate() as connection:
-            board = self._owned_board(connection, username)
-            self._move_card(
-                connection, board.id, card_id, request.columnId, request.position
-            )
-            self._touch_board(connection, board.id)
-        return self.get(username)
-
-    def apply_operations(
-        self, username: str, operations: list[BoardOperation]
-    ) -> BoardResponse:
-        operation_ids = [operation.operationId for operation in operations]
-        if len(operation_ids) != len(set(operation_ids)):
-            raise InvalidBoardOperation("Operation identifiers must be unique")
-
-        with self._immediate() as connection:
-            board = self._owned_board(connection, username)
-            for operation in operations:
-                self._apply_operation(connection, board.id, operation)
-            if operations:
-                self._touch_board(connection, board.id)
-        return self.get(username)
+    _OPERATION_HANDLERS: dict[str, str] = {
+        "create_card": "_create_card_operation",
+        "edit_card": "_edit_card_operation",
+        "delete_card": "_delete_card_operation",
+        "move_card": "_move_card_operation",
+        "rename_column": "_rename_column_operation",
+    }
 
     def _apply_operation(
         self,
@@ -216,27 +179,21 @@ class BoardStore:
         board_id: str,
         operation: BoardOperation,
     ) -> None:
-        if isinstance(operation, CreateCardOperation):
-            self._create_card_operation(connection, board_id, operation)
-        elif isinstance(operation, EditCardOperation):
-            self._edit_card_operation(connection, board_id, operation)
-        elif isinstance(operation, DeleteCardOperation):
-            self._delete_card_operation(connection, board_id, operation)
-        elif isinstance(operation, MoveCardOperation):
-            self._move_card_operation(connection, board_id, operation)
-        elif isinstance(operation, RenameColumnOperation):
-            self._rename_column_operation(connection, board_id, operation)
+        handler = getattr(self, self._OPERATION_HANDLERS[operation.type])
+        handler(connection, board_id, operation)
 
-    def _create_card_operation(
+    def _create_card(
         self,
         connection: sqlite3.Connection,
         board_id: str,
-        operation: CreateCardOperation,
+        column_id: str,
+        title: str,
+        details: str,
     ) -> None:
-        self._owned_column(connection, board_id, operation.columnId)
-        title = self._required_text(operation.title)
+        self._owned_column(connection, board_id, column_id)
+        title = self._required_text(title)
         position = connection.execute(
-            "SELECT count(*) FROM cards WHERE column_id = ?", (operation.columnId,)
+            "SELECT count(*) FROM cards WHERE column_id = ?", (column_id,)
         ).fetchone()[0]
         timestamp = utc_now()
         connection.execute(
@@ -244,13 +201,37 @@ class BoardStore:
             (
                 str(uuid4()),
                 board_id,
-                operation.columnId,
+                column_id,
                 title,
-                operation.details,
+                details,
                 position,
                 timestamp,
                 timestamp,
             ),
+        )
+
+    def _create_card_operation(
+        self,
+        connection: sqlite3.Connection,
+        board_id: str,
+        operation: CreateCardOperation,
+    ) -> None:
+        self._create_card(
+            connection, board_id, operation.columnId, operation.title, operation.details
+        )
+
+    def _edit_card(
+        self,
+        connection: sqlite3.Connection,
+        board_id: str,
+        card_id: str,
+        title: str,
+        details: str,
+    ) -> None:
+        self._owned_card(connection, board_id, card_id)
+        connection.execute(
+            "UPDATE cards SET title = ?, details = ?, updated_at = ? WHERE id = ?",
+            (self._required_text(title), details, utc_now(), card_id),
         )
 
     def _edit_card_operation(
@@ -259,15 +240,17 @@ class BoardStore:
         board_id: str,
         operation: EditCardOperation,
     ) -> None:
-        self._owned_card(connection, board_id, operation.cardId)
-        connection.execute(
-            "UPDATE cards SET title = ?, details = ?, updated_at = ? WHERE id = ?",
-            (
-                self._required_text(operation.title),
-                operation.details,
-                utc_now(),
-                operation.cardId,
-            ),
+        self._edit_card(connection, board_id, operation.cardId, operation.title, operation.details)
+
+    def _delete_card(
+        self, connection: sqlite3.Connection, board_id: str, card_id: str
+    ) -> None:
+        card = self._owned_card(connection, board_id, card_id)
+        connection.execute("DELETE FROM cards WHERE id = ?", (card_id,))
+        self._write_positions(
+            connection,
+            card["column_id"],
+            self._card_ids(connection, card["column_id"]),
         )
 
     def _delete_card_operation(
@@ -276,13 +259,7 @@ class BoardStore:
         board_id: str,
         operation: DeleteCardOperation,
     ) -> None:
-        card = self._owned_card(connection, board_id, operation.cardId)
-        connection.execute("DELETE FROM cards WHERE id = ?", (operation.cardId,))
-        self._write_positions(
-            connection,
-            card["column_id"],
-            self._card_ids(connection, card["column_id"]),
-        )
+        self._delete_card(connection, board_id, operation.cardId)
 
     def _move_card_operation(
         self,
@@ -317,12 +294,11 @@ class BoardStore:
         target_ids.insert(position, card_id)
 
         affected_ids = {source_column_id, target_column_id}
-        temporary_offset = sum(
-            connection.execute(
-                "SELECT count(*) FROM cards WHERE column_id = ?", (column_id,)
-            ).fetchone()[0]
-            for column_id in affected_ids
-        ) + 1
+        temporary_offset = (
+            len(target_ids) + 1
+            if source_column_id == target_column_id
+            else len(source_ids) + len(target_ids) + 1
+        )
         connection.execute(
             f"UPDATE cards SET position = position + ? WHERE column_id IN ({','.join('?' for _ in affected_ids)})",
             (temporary_offset, *affected_ids),
@@ -335,17 +311,26 @@ class BoardStore:
             (target_column_id, utc_now(), card_id),
         )
 
+    def _rename_column(
+        self,
+        connection: sqlite3.Connection,
+        board_id: str,
+        column_id: str,
+        title: str,
+    ) -> None:
+        self._owned_column(connection, board_id, column_id)
+        connection.execute(
+            "UPDATE board_columns SET title = ?, updated_at = ? WHERE id = ?",
+            (self._required_text(title), utc_now(), column_id),
+        )
+
     def _rename_column_operation(
         self,
         connection: sqlite3.Connection,
         board_id: str,
         operation: RenameColumnOperation,
     ) -> None:
-        self._owned_column(connection, board_id, operation.columnId)
-        connection.execute(
-            "UPDATE board_columns SET title = ?, updated_at = ? WHERE id = ?",
-            (self._required_text(operation.title), utc_now(), operation.columnId),
-        )
+        self._rename_column(connection, board_id, operation.columnId, operation.title)
 
     def _immediate(self):
         return ImmediateTransaction(self._database)

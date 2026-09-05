@@ -115,6 +115,7 @@ class KodeKloudClient:
         self.api_key = api_key
         self.timeout = timeout
         self.transport = transport
+        self._client = httpx.Client(timeout=timeout, transport=transport)
 
     def ask(self, prompt: str) -> str:
         return self._complete([{"role": "user", "content": prompt}])
@@ -169,16 +170,12 @@ class KodeKloudClient:
         if response_format is not None:
             request["response_format"] = response_format
         try:
-            with httpx.Client(
-                timeout=self.timeout,
-                transport=self.transport,
-            ) as client:
-                response = client.post(
-                    f"{self.base_url}/chat/completions",
-                    headers={"Authorization": f"Bearer {self.api_key}"},
-                    json=request,
-                )
-                response.raise_for_status()
+            response = self._client.post(
+                f"{self.base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                json=request,
+            )
+            response.raise_for_status()
         except httpx.TimeoutException as exception:
             raise AIProviderTimeout("KodeKloud AI request timed out") from exception
         except httpx.HTTPError as exception:

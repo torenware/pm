@@ -1,4 +1,4 @@
-import { ApiError, type Board } from "@/lib/board-api";
+import { apiRequest, type Board } from "@/lib/board-api";
 
 export type ChatMessage = {
   role: "user" | "assistant";
@@ -41,19 +41,12 @@ export type AIBoardResponse = {
   board: Board;
 };
 
-export async function sendAIMessage(
+export function sendAIMessage(
   message: string,
   history: ChatMessage[]
 ): Promise<AIBoardResponse> {
-  const response = await fetch("/api/ai/board", {
+  return apiRequest<AIBoardResponse>("/api/ai/board", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message, history }),
   });
-
-  if (!response.ok) {
-    throw new ApiError(response.status);
-  }
-
-  return (await response.json()) as AIBoardResponse;
 }

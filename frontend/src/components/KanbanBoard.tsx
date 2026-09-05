@@ -15,11 +15,11 @@ import { KanbanColumn } from "@/components/KanbanColumn";
 import { KanbanCardPreview } from "@/components/KanbanCardPreview";
 import { AIChatSidebar } from "@/components/AIChatSidebar";
 import {
-  ApiError,
   createCard,
   deleteCard,
   editCard,
   getBoard,
+  isSessionExpiredError,
   moveCard as persistCardMove,
   renameColumn,
   type Board,
@@ -47,11 +47,29 @@ export const KanbanBoard = ({
     requestError: unknown,
     message = "Your change could not be saved. Please try again."
   ) => {
-    if (requestError instanceof ApiError && requestError.status === 401) {
+    if (isSessionExpiredError(requestError)) {
       onSessionExpired?.();
       return;
     }
     setError(message);
+  };
+
+  const runMutation = async (
+    action: () => Promise<Board>,
+    onFail?: () => void
+  ): Promise<boolean> => {
+    setError("");
+    setSaving(true);
+    try {
+      setBoard(await action());
+      return true;
+    } catch (requestError) {
+      onFail?.();
+      handleRequestError(requestError);
+      return false;
+    } finally {
+      setSaving(false);
+    }
   };
 
   const loadBoard = async () => {
@@ -106,81 +124,28 @@ export const KanbanBoard = ({
     if (!targetColumn) return;
 
     setBoard({ ...board, columns });
-    setError("");
-    setSaving(true);
-    try {
-      setBoard(
-        await persistCardMove(
+    await runMutation(
+      () =>
+        persistCardMove(
           active.id as string,
           targetColumn.id,
           targetColumn.cardIds.indexOf(active.id as string)
-        )
-      );
-    } catch (requestError) {
-      setBoard(previousBoard);
-      handleRequestError(requestError);
-    } finally {
-      setSaving(false);
-    }
+        ),
+      () => setBoard(previousBoard)
+    );
   };
 
-  const handleRenameColumn = async (columnId: string, title: string) => {
-    setError("");
-    setSaving(true);
-    try {
-      setBoard(await renameColumn(columnId, title));
-      return true;
-    } catch (requestError) {
-      handleRequestError(requestError);
-      return false;
-    } finally {
-      setSaving(false);
-    }
-  };
+  const handleRenameColumn = (columnId: string, title: string) =>
+    runMutation(() => renameColumn(columnId, title));
 
-  const handleAddCard = async (
-    columnId: string,
-    title: string,
-    details: string
-  ) => {
-    setError("");
-    setSaving(true);
-    try {
-      setBoard(await createCard(columnId, title, details));
-    } catch (requestError) {
-      handleRequestError(requestError);
-    } finally {
-      setSaving(false);
-    }
-  };
+  const handleAddCard = (columnId: string, title: string, details: string) =>
+    runMutation(() => createCard(columnId, title, details));
 
-  const handleEditCard = async (
-    cardId: string,
-    title: string,
-    details: string
-  ) => {
-    setError("");
-    setSaving(true);
-    try {
-      setBoard(await editCard(cardId, title, details));
-    } catch (requestError) {
-      handleRequestError(requestError);
-    } finally {
-      setSaving(false);
-    }
-  };
+  const handleEditCard = (cardId: string, title: string, details: string) =>
+    runMutation(() => editCard(cardId, title, details));
 
-  const handleDeleteCard = async (cardId: string) => {
-    setError("");
-    setSaving(true);
-    try {
-      setBoard(await deleteCard(cardId));
-    } catch (requestError) {
-      handleRequestError(requestError);
-    } finally {
-      setSaving(false);
-    }
-  };
+  const handleDeleteCard = (cardId: string) =>
+    runMutation(() => deleteCard(cardId));
 
   if (loading && !board) {
     return (

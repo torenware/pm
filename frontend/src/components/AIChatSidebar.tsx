@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Bot, MessageSquare, RefreshCw, Send, X } from "lucide-react";
-import { ApiError, type Board } from "@/lib/board-api";
+import { isSessionExpiredError, type Board } from "@/lib/board-api";
 import {
   sendAIMessage,
   type ChatMessage,
@@ -57,7 +57,7 @@ export function AIChatSidebar({
       ]);
       onBoardChange(result.board);
     } catch (requestError) {
-      if (requestError instanceof ApiError && requestError.status === 401) {
+      if (isSessionExpiredError(requestError)) {
         onSessionExpired?.();
         return;
       }

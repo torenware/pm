@@ -11,10 +11,14 @@ export class ApiError extends Error {
   }
 }
 
-async function requestBoard(
+export function isSessionExpiredError(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 401;
+}
+
+export async function apiRequest<T>(
   path: string,
   init?: RequestInit
-): Promise<Board> {
+): Promise<T> {
   const response = await fetch(path, {
     ...init,
     headers: init?.body
@@ -26,8 +30,11 @@ async function requestBoard(
     throw new ApiError(response.status);
   }
 
-  return (await response.json()) as Board;
+  return (await response.json()) as T;
 }
+
+const requestBoard = (path: string, init?: RequestInit) =>
+  apiRequest<Board>(path, init);
 
 export const getBoard = () => requestBoard("/api/board");
 
